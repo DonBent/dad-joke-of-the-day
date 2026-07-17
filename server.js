@@ -67,6 +67,20 @@ function jokeForDate(dateStr) {
 
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 
+// ── Rate limiting (in-memory) ───────────────────────────────────────────────
+const submitRateLimit = {}; // ip -> [timestamps]
+const RATE_LIMIT_MAX = 3;
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const times = (submitRateLimit[ip] || []).filter(t => now - t < RATE_LIMIT_WINDOW);
+  submitRateLimit[ip] = times;
+  if (times.length >= RATE_LIMIT_MAX) return false;
+  times.push(now);
+  return true;
+}
+
 // ── Static ───────────────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -104,6 +118,41 @@ app.get('/api/archive', (req, res) => {
     result.push({ ...jokeWithVotes(jokeForDate(dateStr)), date: dateStr });
   }
   res.json(result);
+});
+
+// RSS feed
+app.get('/feed.rss', (req, res) => {
+  const days = 30;
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const items = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const joke = jokeForDate(dateStr);
+    const pubDate = new Date(dateStr + 'T12:00:00Z').toUTCString();
+    items.push(`    <item>
+      <title>Dad Joke — ${dateStr}</title>
+      <link>${baseUrl}/#joke-${joke.id}</link>
+      <guid isPermaLink="false">${dateStr}-${joke.id}</guid>
+      <pubDate>${pubDate}</pubDate>
+      <description><![CDATA[${joke.joke}]]></description>
+      <category>${joke.category}</category>
+    </item>`);
+  }
+  const rss = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Dad Joke of the Day</title>
+    <link>${baseUrl}</link>
+    <description>A fresh dad joke every day. Subscribe for daily groan-worthy humor.</description>
+    <language>en-us</language>
+    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+${items.join('\n')}
+  </channel>
+</rss>`;
+  res.set('Content-Type', 'application/rss+xml; charset=utf-8');
+  res.send(rss);
 });
 
 // Search jokes
@@ -152,6 +201,10 @@ app.get('/api/joke/:id', (req, res) => {
 
 // Submit a joke
 app.post('/api/submit', (req, res) => {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  if (!checkRateLimit(ip)) {
+    return res.status(429).json({ error: 'Too many submissions. Please wait before submitting again.' });
+  }
   const { joke, category } = req.body || {};
   if (!joke || typeof joke !== 'string' || joke.trim().length < 10) {
     return res.status(400).json({ error: 'joke must be at least 10 characters' });
