@@ -24,7 +24,22 @@
       text-align: center;
     }
     .emoji { font-size: 3rem; margin-bottom: 16px; }
-    h1 { font-size: 1.4rem; color: #888; margin-bottom: 32px; letter-spacing: 0.5px; }
+    h1 { font-size: 1.4rem; color: #888; margin-bottom: 24px; letter-spacing: 0.5px; }
+    .category-filter {
+      margin-bottom: 20px;
+    }
+    .category-filter select {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 2px solid #eee;
+      font-size: 0.95rem;
+      color: #555;
+      cursor: pointer;
+      outline: none;
+      background: #fafafa;
+      transition: border-color 0.2s;
+    }
+    .category-filter select:focus { border-color: #ff6b35; }
     #joke-text {
       font-size: 1.4rem;
       color: #333;
@@ -33,7 +48,20 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 32px;
+      margin-bottom: 16px;
+    }
+    .badge {
+      display: inline-block;
+      background: #fff3ec;
+      color: #ff6b35;
+      border: 1px solid #ffd5bf;
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
     }
     button {
       background: #ff6b35;
@@ -54,25 +82,52 @@
   <div class="card">
     <div class="emoji">😄</div>
     <h1>Dad Joke of the Day</h1>
+    <div class="category-filter">
+      <select id="category-select" onchange="fetchJoke()">
+        <option value="">All categories</option>
+      </select>
+    </div>
     <div id="joke-text" class="loading">Loading a joke...</div>
-    <button id="next-btn" onclick="fetchJoke()">Another one! 👴</button>
+    <div id="joke-badge" class="badge" style="visibility:hidden">—</div>
+    <button onclick="fetchJoke()">Another one! 👴</button>
   </div>
 
   <script>
+    async function loadCategories() {
+      try {
+        const res = await fetch('/api/categories');
+        const cats = await res.json();
+        const sel = document.getElementById('category-select');
+        cats.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c.charAt(0).toUpperCase() + c.slice(1);
+          sel.appendChild(opt);
+        });
+      } catch(e) {}
+    }
+
     async function fetchJoke() {
       const el = document.getElementById('joke-text');
+      const badge = document.getElementById('joke-badge');
+      const category = document.getElementById('category-select').value;
       el.className = 'loading';
       el.textContent = 'Loading a joke...';
+      badge.style.visibility = 'hidden';
       try {
-        const res = await fetch('/api/joke');
+        const url = category ? `/api/joke?category=${encodeURIComponent(category)}` : '/api/joke';
+        const res = await fetch(url);
         const data = await res.json();
         el.className = '';
         el.textContent = data.joke;
+        badge.textContent = data.category;
+        badge.style.visibility = 'visible';
       } catch (e) {
         el.textContent = 'Oops, the joke escaped. Try again!';
       }
     }
-    fetchJoke();
+
+    loadCategories().then(() => fetchJoke());
   </script>
 </body>
 </html>

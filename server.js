@@ -8,9 +8,21 @@ const PORT = process.env.PORT || 3000;
 // Serve static frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
-// API: random joke
+// API: all categories
+app.get('/api/categories', (req, res) => {
+  const categories = [...new Set(jokes.map(j => j.category))].sort();
+  res.json(categories);
+});
+
+// API: random joke (optionally filtered by category)
 app.get('/api/joke', (req, res) => {
-  const joke = jokes[Math.floor(Math.random() * jokes.length)];
+  const { category } = req.query;
+  let pool = jokes;
+  if (category) {
+    pool = jokes.filter(j => j.category === category);
+    if (pool.length === 0) return res.status(404).json({ error: `No jokes found for category: ${category}` });
+  }
+  const joke = pool[Math.floor(Math.random() * pool.length)];
   res.json(joke);
 });
 
