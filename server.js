@@ -1,29 +1,52 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const jokes = require('./jokes.json');
+const builtinJokes = require('./jokes.json');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'dev-admin-token';
 const VOTES_FILE = path.join(__dirname, 'votes.json');
+const CUSTOM_JOKES_FILE = path.join(__dirname, 'custom-jokes.json');
+const SUBMISSIONS_FILE = path.join(__dirname, 'submissions.json');
 
 app.use(express.json());
 
-// Load/save votes
-function loadVotes() {
-  try { return JSON.parse(fs.readFileSync(VOTES_FILE, 'utf8')); } catch { return {}; }
+// ── Persistence helpers ──────────────────────────────────────────────────────
+function readJson(file, def) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return def; }
 }
-function saveVotes(votes) {
-  fs.writeFileSync(VOTES_FILE, JSON.stringify(votes, null, 2));
+function writeJson(file, data) {
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
-let votes = loadVotes();
+let votes = readJson(VOTES_FILE, {});
+function saveVotes() { writeJson(VOTES_FILE, votes); }
 
+function allJokes() {
+  const custom = readJson(CUSTOM_JOKES_FILE, []);
+  return [...builtinJokes, ...custom];
+}
+
+function nextId() {
+  const maxBuiltin = Math.max(...builtinJokes.map(j => j.id));
+  const custom = readJson(CUSTOM_JOKES_FILE, []);
+  const maxCustom = custom.length ? Math.max(...custom.map(j => j.id)) : 0;
+  return Math.max(maxBuiltin, maxCustom) + 1;
+}
+
+// ── Middleware ───────────────────────────────────────────────────────────────
+function adminAuth(req, res, next) {
+  const token = req.headers['x-admin-token'] || req.query.token;
+  if (token !== ADMIN_TOKEN) return res.status(403).json({ error: 'Forbidden' });
+  next();
+}
+
+// ── Joke helpers ─────────────────────────────────────────────────────────────
 function jokeWithVotes(joke) {
   return { ...joke, votes: votes[joke.id] || 0 };
 }
 
-// Weighted random selection
 function weightedRandom(pool) {
   const weights = pool.map(j => 1 + (votes[j.id] || 0));
   const total = weights.reduce((a, b) => a + b, 0);
@@ -35,84 +58,112 @@ function weightedRandom(pool) {
   return pool[pool.length - 1];
 }
 
-// Deterministic joke index from a date string YYYY-MM-DD
 function jokeForDate(dateStr) {
+  const jokes = allJokes();
   let hash = 0;
-  for (let i = 0; i < dateStr.length; i++) {
-    hash = (hash * 31 + dateStr.charCodeAt(i)) & 0xffffffff;
-  }
+  for (let i = 0; i < dateStr.length; i++) hash = (hash * 31 + dateStr.charCodeAt(i)) & 0xffffffff;
   return jokes[Math.abs(hash) % jokes.length];
 }
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
+function todayStr() { return new Date().toISOString().slice(0, 10); }
 
-// Serve static frontend
+// ── Static ───────────────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 
-// API: all categories
+// ── Public API ───────────────────────────────────────────────────────────────
 app.get('/api/categories', (req, res) => {
-  const categories = [...new Set(jokes.map(j => j.category))].sort();
+  const categories = [...new Set(allJokes().map(j => j.category))].sort();
   res.json(categories);
 });
 
-// API: upvote a joke
 app.post('/api/joke/:id/upvote', (req, res) => {
   const id = parseInt(req.params.id);
-  const joke = jokes.find(j => j.id === id);
-  if (!joke) return res.status(404).json({ error: 'Joke not found' });
+  if (!allJokes().find(j => j.id === id)) return res.status(404).json({ error: 'Joke not found' });
   votes[id] = (votes[id] || 0) + 1;
-  saveVotes(votes);
+  saveVotes();
   res.json({ id, votes: votes[id] });
 });
 
-// API: today's joke
 app.get('/api/joke/today', (req, res) => {
   const today = todayStr();
   res.json({ ...jokeWithVotes(jokeForDate(today)), date: today });
 });
 
-// API: joke for a specific date
 app.get('/api/joke/day/:date', (req, res) => {
   const { date } = req.params;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
-  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Date must be YYYY-MM-DD' });
   res.json({ ...jokeWithVotes(jokeForDate(date)), date });
 });
 
-// API: last N days archive
 app.get('/api/archive', (req, res) => {
   const days = Math.min(parseInt(req.query.days) || 7, 30);
   const result = [];
   for (let i = 0; i < days; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
+    const d = new Date(); d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().slice(0, 10);
     result.push({ ...jokeWithVotes(jokeForDate(dateStr)), date: dateStr });
   }
   res.json(result);
 });
 
-// API: random joke (weighted, optionally filtered by category)
 app.get('/api/joke', (req, res) => {
   const { category } = req.query;
-  let pool = jokes;
+  let pool = allJokes();
   if (category) {
-    pool = jokes.filter(j => j.category === category);
-    if (pool.length === 0) return res.status(404).json({ error: `No jokes found for category: ${category}` });
+    pool = pool.filter(j => j.category === category);
+    if (!pool.length) return res.status(404).json({ error: `No jokes found for category: ${category}` });
   }
   res.json(jokeWithVotes(weightedRandom(pool)));
 });
 
-// API: joke by id
 app.get('/api/joke/:id', (req, res) => {
-  const joke = jokes.find(j => j.id === parseInt(req.params.id));
+  const joke = allJokes().find(j => j.id === parseInt(req.params.id));
   if (!joke) return res.status(404).json({ error: 'Joke not found' });
   res.json(jokeWithVotes(joke));
 });
 
-app.listen(PORT, () => {
-  console.log(`Dad Joke server running on port ${PORT}`);
+// Submit a joke
+app.post('/api/submit', (req, res) => {
+  const { joke, category } = req.body || {};
+  if (!joke || typeof joke !== 'string' || joke.trim().length < 10) {
+    return res.status(400).json({ error: 'joke must be at least 10 characters' });
+  }
+  const validCategories = [...new Set(builtinJokes.map(j => j.category))];
+  const cat = validCategories.includes(category) ? category : 'general';
+  const subs = readJson(SUBMISSIONS_FILE, []);
+  const sub = { sid: Date.now(), joke: joke.trim(), category: cat, submittedAt: new Date().toISOString() };
+  subs.push(sub);
+  writeJson(SUBMISSIONS_FILE, subs);
+  res.status(201).json({ message: 'Submitted! Your joke will appear after moderation.', sid: sub.sid });
 });
+
+// ── Admin API ────────────────────────────────────────────────────────────────
+app.get('/api/admin/submissions', adminAuth, (req, res) => {
+  res.json(readJson(SUBMISSIONS_FILE, []));
+});
+
+app.post('/api/admin/approve/:sid', adminAuth, (req, res) => {
+  const sid = parseInt(req.params.sid);
+  let subs = readJson(SUBMISSIONS_FILE, []);
+  const idx = subs.findIndex(s => s.sid === sid);
+  if (idx === -1) return res.status(404).json({ error: 'Submission not found' });
+  const [sub] = subs.splice(idx, 1);
+  writeJson(SUBMISSIONS_FILE, subs);
+  const custom = readJson(CUSTOM_JOKES_FILE, []);
+  const newJoke = { id: nextId(), joke: sub.joke, category: sub.category };
+  custom.push(newJoke);
+  writeJson(CUSTOM_JOKES_FILE, custom);
+  res.json({ message: 'Approved', joke: newJoke });
+});
+
+app.delete('/api/admin/submissions/:sid', adminAuth, (req, res) => {
+  const sid = parseInt(req.params.sid);
+  let subs = readJson(SUBMISSIONS_FILE, []);
+  const len = subs.length;
+  subs = subs.filter(s => s.sid !== sid);
+  if (subs.length === len) return res.status(404).json({ error: 'Submission not found' });
+  writeJson(SUBMISSIONS_FILE, subs);
+  res.json({ message: 'Rejected' });
+});
+
+app.listen(PORT, () => console.log(`Dad Joke server running on port ${PORT}`));

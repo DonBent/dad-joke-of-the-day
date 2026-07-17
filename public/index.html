@@ -227,3 +227,78 @@
   </script>
 </body>
 </html>
+<!-- submission styles + form injected by v6 -->
+<style>
+  .submit-section { margin-top: 32px; border-top: 1px solid #f0f0f0; padding-top: 24px; }
+  .submit-toggle {
+    background: none; border: 2px dashed #eee; border-radius: 10px;
+    color: #aaa; width: 100%; padding: 12px; font-size: 0.9rem;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .submit-toggle:hover { border-color: #ff6b35; color: #ff6b35; background: #fff8f5; }
+  .submit-form { display: none; margin-top: 16px; text-align: left; }
+  .submit-form.open { display: block; }
+  .submit-form textarea, .submit-form select {
+    width: 100%; border: 2px solid #eee; border-radius: 8px;
+    padding: 10px 14px; font-size: 0.95rem; color: #444;
+    margin-bottom: 10px; outline: none; font-family: inherit;
+  }
+  .submit-form textarea { resize: vertical; min-height: 70px; }
+  .submit-form textarea:focus, .submit-form select:focus { border-color: #ff6b35; }
+  .submit-form button.submit-btn {
+    background: #ff6b35; color: white; border: none; border-radius: 8px;
+    padding: 10px 24px; font-size: 0.9rem; cursor: pointer; width: 100%;
+  }
+  .submit-form button.submit-btn:hover { background: #e55a26; }
+  .submit-msg { margin-top: 8px; font-size: 0.85rem; color: #2a7a2a; }
+  .submit-msg.error { color: #c00; }
+</style>
+<script>
+(function() {
+  document.addEventListener('DOMContentLoaded', function() {
+    // Inject submission section after card
+    const card = document.querySelector('.card');
+    const section = document.createElement('div');
+    section.className = 'submit-section';
+    section.innerHTML = `
+      <button class="submit-toggle" onclick="toggleSubmit()">✍️ Got a dad joke? Submit it!</button>
+      <div class="submit-form" id="submit-form">
+        <textarea id="sub-joke" placeholder="Your joke here (be groan-worthy)..."></textarea>
+        <select id="sub-cat">
+          <option value="general">General</option>
+          <option value="science">Science</option>
+          <option value="food">Food</option>
+          <option value="animals">Animals</option>
+          <option value="wordplay">Wordplay</option>
+        </select>
+        <button class="submit-btn" onclick="submitJoke()">Submit Joke 🎤</button>
+        <div class="submit-msg" id="sub-msg"></div>
+      </div>`;
+    card.appendChild(section);
+  });
+  window.toggleSubmit = function() {
+    document.getElementById('submit-form').classList.toggle('open');
+  };
+  window.submitJoke = async function() {
+    const joke = document.getElementById('sub-joke').value.trim();
+    const category = document.getElementById('sub-cat').value;
+    const msg = document.getElementById('sub-msg');
+    msg.className = 'submit-msg'; msg.textContent = '';
+    if (joke.length < 10) { msg.className = 'submit-msg error'; msg.textContent = 'Joke too short!'; return; }
+    try {
+      const res = await fetch('/api/submit', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ joke, category })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        msg.textContent = data.message;
+        document.getElementById('sub-joke').value = '';
+        setTimeout(() => document.getElementById('submit-form').classList.remove('open'), 3000);
+      } else {
+        msg.className = 'submit-msg error'; msg.textContent = data.error;
+      }
+    } catch(e) { msg.className = 'submit-msg error'; msg.textContent = 'Failed to submit. Try again.'; }
+  };
+})();
+</script>
