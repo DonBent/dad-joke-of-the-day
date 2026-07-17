@@ -13,86 +13,107 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 20px;
     }
     .card {
       background: white;
       border-radius: 16px;
       padding: 40px;
-      max-width: 560px;
-      width: 90%;
+      max-width: 600px;
+      width: 100%;
       box-shadow: 0 8px 32px rgba(0,0,0,0.12);
       text-align: center;
     }
-    .emoji { font-size: 3rem; margin-bottom: 16px; }
-    h1 { font-size: 1.4rem; color: #888; margin-bottom: 24px; letter-spacing: 0.5px; }
-    .category-filter {
-      margin-bottom: 20px;
-    }
-    .category-filter select {
-      padding: 8px 16px;
-      border-radius: 8px;
+    .emoji { font-size: 3rem; margin-bottom: 12px; }
+    h1 { font-size: 1.4rem; color: #888; margin-bottom: 24px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 28px; }
+    .tab {
+      padding: 8px 20px;
+      border-radius: 20px;
       border: 2px solid #eee;
-      font-size: 0.95rem;
-      color: #555;
-      cursor: pointer;
-      outline: none;
       background: #fafafa;
-      transition: border-color 0.2s;
+      color: #888;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab.active { background: #ff6b35; color: white; border-color: #ff6b35; }
+
+    /* Category filter */
+    .category-filter { margin-bottom: 20px; }
+    .category-filter select {
+      padding: 8px 16px; border-radius: 8px; border: 2px solid #eee;
+      font-size: 0.95rem; color: #555; cursor: pointer; outline: none; background: #fafafa;
     }
     .category-filter select:focus { border-color: #ff6b35; }
+
+    /* Joke display */
     #joke-text {
-      font-size: 1.4rem;
-      color: #333;
-      line-height: 1.6;
-      min-height: 80px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 16px;
+      font-size: 1.35rem; color: #333; line-height: 1.6;
+      min-height: 80px; display: flex; align-items: center;
+      justify-content: center; margin-bottom: 14px;
     }
     .badge {
-      display: inline-block;
-      background: #fff3ec;
-      color: #ff6b35;
-      border: 1px solid #ffd5bf;
-      border-radius: 20px;
-      padding: 4px 14px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      margin-bottom: 24px;
+      display: inline-block; background: #fff3ec; color: #ff6b35;
+      border: 1px solid #ffd5bf; border-radius: 20px;
+      padding: 4px 14px; font-size: 0.8rem; font-weight: 600;
+      letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 24px;
     }
+    .date-label { font-size: 0.8rem; color: #bbb; margin-bottom: 4px; }
+
     button {
-      background: #ff6b35;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 14px 32px;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: background 0.2s, transform 0.1s;
+      background: #ff6b35; color: white; border: none;
+      border-radius: 8px; padding: 14px 32px; font-size: 1rem;
+      cursor: pointer; transition: background 0.2s, transform 0.1s;
     }
     button:hover { background: #e55a26; }
     button:active { transform: scale(0.97); }
     .loading { color: #aaa; font-style: italic; }
+
+    /* Archive */
+    .archive { margin-top: 36px; text-align: left; }
+    .archive h2 { font-size: 1rem; color: #aaa; margin-bottom: 16px; text-align: center; letter-spacing: 0.5px; }
+    .archive-item {
+      background: #fafafa; border-radius: 10px; padding: 14px 18px;
+      margin-bottom: 10px; border-left: 4px solid #ffd5bf;
+    }
+    .archive-date { font-size: 0.75rem; color: #bbb; font-weight: 600; margin-bottom: 4px; }
+    .archive-joke { font-size: 0.95rem; color: #555; line-height: 1.5; }
+    .archive-cat { font-size: 0.7rem; color: #ff6b35; font-weight: 600; text-transform: uppercase; margin-top: 4px; }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="emoji">😄</div>
     <h1>Dad Joke of the Day</h1>
-    <div class="category-filter">
-      <select id="category-select" onchange="fetchJoke()">
+
+    <div class="tabs">
+      <div class="tab active" id="tab-today" onclick="switchTab('today')">📅 Today's Joke</div>
+      <div class="tab" id="tab-random" onclick="switchTab('random')">🎲 Random</div>
+    </div>
+
+    <div id="random-controls" style="display:none" class="category-filter">
+      <select id="category-select" onchange="fetchRandom()">
         <option value="">All categories</option>
       </select>
     </div>
+
+    <div id="joke-date" class="date-label" style="visibility:hidden">—</div>
     <div id="joke-text" class="loading">Loading a joke...</div>
     <div id="joke-badge" class="badge" style="visibility:hidden">—</div>
-    <button onclick="fetchJoke()">Another one! 👴</button>
+    <button id="action-btn" onclick="onAction()">Another one! 👴</button>
+
+    <div class="archive" id="archive-section" style="display:none">
+      <h2>📖 Last 7 Days</h2>
+      <div id="archive-list"></div>
+    </div>
   </div>
 
   <script>
+    let currentTab = 'today';
+
     async function loadCategories() {
       try {
         const res = await fetch('/api/categories');
@@ -107,27 +128,74 @@
       } catch(e) {}
     }
 
-    async function fetchJoke() {
+    function showJoke(data) {
       const el = document.getElementById('joke-text');
       const badge = document.getElementById('joke-badge');
-      const category = document.getElementById('category-select').value;
-      el.className = 'loading';
-      el.textContent = 'Loading a joke...';
-      badge.style.visibility = 'hidden';
-      try {
-        const url = category ? `/api/joke?category=${encodeURIComponent(category)}` : '/api/joke';
-        const res = await fetch(url);
-        const data = await res.json();
-        el.className = '';
-        el.textContent = data.joke;
-        badge.textContent = data.category;
-        badge.style.visibility = 'visible';
-      } catch (e) {
-        el.textContent = 'Oops, the joke escaped. Try again!';
+      const dateEl = document.getElementById('joke-date');
+      el.className = '';
+      el.textContent = data.joke;
+      badge.textContent = data.category;
+      badge.style.visibility = 'visible';
+      if (data.date) {
+        dateEl.textContent = data.date;
+        dateEl.style.visibility = 'visible';
+      } else {
+        dateEl.style.visibility = 'hidden';
       }
     }
 
-    loadCategories().then(() => fetchJoke());
+    async function fetchToday() {
+      document.getElementById('joke-text').className = 'loading';
+      document.getElementById('joke-text').textContent = 'Loading today\'s joke...';
+      document.getElementById('joke-badge').style.visibility = 'hidden';
+      try {
+        const res = await fetch('/api/joke/today');
+        showJoke(await res.json());
+      } catch(e) { document.getElementById('joke-text').textContent = 'Oops! Try again.'; }
+    }
+
+    async function fetchRandom() {
+      const el = document.getElementById('joke-text');
+      el.className = 'loading'; el.textContent = 'Loading a joke...';
+      document.getElementById('joke-badge').style.visibility = 'hidden';
+      document.getElementById('joke-date').style.visibility = 'hidden';
+      const category = document.getElementById('category-select').value;
+      try {
+        const url = category ? `/api/joke?category=${encodeURIComponent(category)}` : '/api/joke';
+        showJoke(await (await fetch(url)).json());
+      } catch(e) { el.textContent = 'Oops! Try again.'; }
+    }
+
+    async function loadArchive() {
+      try {
+        const res = await fetch('/api/archive?days=7');
+        const days = await res.json();
+        const list = document.getElementById('archive-list');
+        list.innerHTML = days.map(d => `
+          <div class="archive-item">
+            <div class="archive-date">${d.date}</div>
+            <div class="archive-joke">${d.joke}</div>
+            <div class="archive-cat">${d.category}</div>
+          </div>`).join('');
+      } catch(e) {}
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.getElementById('tab-today').className = 'tab' + (tab === 'today' ? ' active' : '');
+      document.getElementById('tab-random').className = 'tab' + (tab === 'random' ? ' active' : '');
+      document.getElementById('random-controls').style.display = tab === 'random' ? 'block' : 'none';
+      document.getElementById('action-btn').textContent = tab === 'today' ? '↻ Reload today\'s joke' : 'Another one! 👴';
+      document.getElementById('archive-section').style.display = tab === 'today' ? 'block' : 'none';
+      if (tab === 'today') { fetchToday(); loadArchive(); }
+      else { fetchRandom(); }
+    }
+
+    function onAction() {
+      if (currentTab === 'today') fetchToday(); else fetchRandom();
+    }
+
+    loadCategories().then(() => switchTab('today'));
   </script>
 </body>
 </html>
