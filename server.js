@@ -106,6 +106,34 @@ app.get('/api/archive', (req, res) => {
   res.json(result);
 });
 
+// Search jokes
+app.get('/api/search', (req, res) => {
+  const q = (req.query.q || '').toLowerCase().trim();
+  if (!q) return res.status(400).json({ error: 'q parameter required' });
+  const results = allJokes().filter(j => j.joke.toLowerCase().includes(q)).map(jokeWithVotes);
+  res.json({ q, count: results.length, results });
+});
+
+// Stats
+app.get('/api/stats', (req, res) => {
+  const jokes = allJokes();
+  const categoryCounts = {};
+  jokes.forEach(j => { categoryCounts[j.category] = (categoryCounts[j.category] || 0) + 1; });
+  const topVoted = jokes
+    .map(j => ({ id: j.id, joke: j.joke.slice(0, 60) + (j.joke.length > 60 ? '…' : ''), votes: votes[j.id] || 0 }))
+    .sort((a, b) => b.votes - a.votes)
+    .slice(0, 5);
+  const subs = readJson(SUBMISSIONS_FILE, []);
+  res.json({
+    totalJokes: jokes.length,
+    builtinJokes: builtinJokes.length,
+    customJokes: jokes.length - builtinJokes.length,
+    categories: categoryCounts,
+    pendingSubmissions: subs.length,
+    topVoted
+  });
+});
+
 app.get('/api/joke', (req, res) => {
   const { category } = req.query;
   let pool = allJokes();
