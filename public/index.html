@@ -9,107 +9,104 @@
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+      min-height: 100vh; display: flex; align-items: center;
+      justify-content: center; padding: 20px;
     }
     .card {
-      background: white;
-      border-radius: 16px;
-      padding: 40px;
-      max-width: 600px;
-      width: 100%;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-      text-align: center;
+      background: white; border-radius: 16px; padding: 40px;
+      max-width: 600px; width: 100%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12); text-align: center;
     }
     .emoji { font-size: 3rem; margin-bottom: 12px; }
     h1 { font-size: 1.4rem; color: #888; margin-bottom: 24px; }
-
     .tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 28px; }
     .tab {
       padding: 8px 20px; border-radius: 20px; border: 2px solid #eee;
-      background: #fafafa; color: #888; font-size: 0.9rem;
-      cursor: pointer; transition: all 0.2s;
+      background: #fafafa; color: #888; font-size: 0.9rem; cursor: pointer; transition: all 0.2s;
     }
     .tab.active { background: #ff6b35; color: white; border-color: #ff6b35; }
-
     .category-filter { margin-bottom: 20px; }
     .category-filter select {
       padding: 8px 16px; border-radius: 8px; border: 2px solid #eee;
       font-size: 0.95rem; color: #555; cursor: pointer; outline: none; background: #fafafa;
     }
     .category-filter select:focus { border-color: #ff6b35; }
-
     #joke-date { font-size: 0.8rem; color: #bbb; margin-bottom: 4px; visibility: hidden; }
     #joke-text {
       font-size: 1.35rem; color: #333; line-height: 1.6;
       min-height: 80px; display: flex; align-items: center;
       justify-content: center; margin-bottom: 14px;
     }
+    .meta-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px; margin-bottom: 24px;
+    }
     .badge {
-      display: inline-block; background: #fff3ec; color: #ff6b35;
-      border: 1px solid #ffd5bf; border-radius: 20px;
-      padding: 4px 14px; font-size: 0.8rem; font-weight: 600;
-      letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 20px;
+      background: #fff3ec; color: #ff6b35; border: 1px solid #ffd5bf;
+      border-radius: 20px; padding: 4px 14px; font-size: 0.8rem;
+      font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
       visibility: hidden;
     }
-
+    .upvote-btn {
+      background: #f9f9f9; border: 2px solid #eee; border-radius: 20px;
+      padding: 4px 14px; font-size: 0.85rem; color: #888;
+      cursor: pointer; transition: all 0.2s; visibility: hidden;
+    }
+    .upvote-btn:hover { border-color: #ff6b35; color: #ff6b35; background: #fff3ec; }
+    .upvote-btn.voted { background: #fff3ec; color: #ff6b35; border-color: #ff6b35; }
     .actions { display: flex; gap: 10px; justify-content: center; margin-bottom: 8px; }
-    button {
+    button.primary {
       background: #ff6b35; color: white; border: none;
       border-radius: 8px; padding: 12px 28px; font-size: 0.95rem;
       cursor: pointer; transition: background 0.2s, transform 0.1s;
     }
-    button:hover { background: #e55a26; }
-    button:active { transform: scale(0.97); }
+    button.primary:hover { background: #e55a26; }
+    button.primary:active { transform: scale(0.97); }
     #share-btn {
-      background: #f0f0f0; color: #555; font-size: 0.9rem; padding: 12px 20px;
+      background: #f0f0f0; color: #555; border: none; border-radius: 8px;
+      padding: 12px 20px; font-size: 0.9rem; cursor: pointer; transition: all 0.2s;
     }
     #share-btn:hover { background: #e0e0e0; }
     #share-btn.copied { background: #d4f5d4; color: #2a7a2a; }
-
     .loading { color: #aaa; font-style: italic; }
-
     .archive { margin-top: 36px; text-align: left; }
     .archive h2 { font-size: 1rem; color: #aaa; margin-bottom: 16px; text-align: center; }
     .archive-item {
       background: #fafafa; border-radius: 10px; padding: 14px 18px;
-      margin-bottom: 10px; border-left: 4px solid #ffd5bf; cursor: pointer;
-      transition: border-color 0.15s;
+      margin-bottom: 10px; border-left: 4px solid #ffd5bf;
+      cursor: pointer; transition: border-color 0.15s;
     }
     .archive-item:hover { border-color: #ff6b35; }
     .archive-date { font-size: 0.75rem; color: #bbb; font-weight: 600; margin-bottom: 4px; }
     .archive-joke { font-size: 0.95rem; color: #555; line-height: 1.5; }
-    .archive-cat { font-size: 0.7rem; color: #ff6b35; font-weight: 600; text-transform: uppercase; margin-top: 4px; }
+    .archive-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+    .archive-cat { font-size: 0.7rem; color: #ff6b35; font-weight: 600; text-transform: uppercase; }
+    .archive-votes { font-size: 0.75rem; color: #bbb; }
   </style>
 </head>
 <body>
   <div class="card">
     <div class="emoji">😄</div>
     <h1>Dad Joke of the Day</h1>
-
     <div class="tabs">
       <div class="tab active" id="tab-today" onclick="switchTab('today')">📅 Today's Joke</div>
       <div class="tab" id="tab-random" onclick="switchTab('random')">🎲 Random</div>
     </div>
-
     <div id="random-controls" style="display:none" class="category-filter">
       <select id="category-select" onchange="fetchRandom()">
         <option value="">All categories</option>
       </select>
     </div>
-
     <div id="joke-date"></div>
     <div id="joke-text" class="loading">Loading a joke...</div>
-    <div id="joke-badge" class="badge">—</div>
-
+    <div class="meta-row">
+      <div id="joke-badge" class="badge">—</div>
+      <button class="upvote-btn" id="upvote-btn" onclick="upvote()">👍 <span id="vote-count">0</span></button>
+    </div>
     <div class="actions">
-      <button id="action-btn" onclick="onAction()">Another one! 👴</button>
+      <button class="primary" id="action-btn" onclick="onAction()">Another one! 👴</button>
       <button id="share-btn" onclick="shareJoke()">🔗 Share</button>
     </div>
-
     <div class="archive" id="archive-section">
       <h2>📖 Last 7 Days</h2>
       <div id="archive-list"></div>
@@ -126,36 +123,40 @@
         const sel = document.getElementById('category-select');
         cats.forEach(c => {
           const opt = document.createElement('option');
-          opt.value = c;
-          opt.textContent = c.charAt(0).toUpperCase() + c.slice(1);
+          opt.value = c; opt.textContent = c.charAt(0).toUpperCase() + c.slice(1);
           sel.appendChild(opt);
         });
       } catch(e) {}
     }
 
     function showJoke(data) {
-      const el = document.getElementById('joke-text');
-      const badge = document.getElementById('joke-badge');
-      const dateEl = document.getElementById('joke-date');
-      el.className = '';
-      el.textContent = data.joke;
-      badge.textContent = data.category;
-      badge.style.visibility = 'visible';
+      document.getElementById('joke-text').className = '';
+      document.getElementById('joke-text').textContent = data.joke;
+      document.getElementById('joke-badge').textContent = data.category;
+      document.getElementById('joke-badge').style.visibility = 'visible';
+      document.getElementById('upvote-btn').style.visibility = 'visible';
+      document.getElementById('upvote-btn').classList.remove('voted');
+      document.getElementById('vote-count').textContent = data.votes || 0;
       currentJokeId = data.id;
-      // Update URL hash
       history.replaceState(null, '', `#joke-${data.id}`);
-      if (data.date) {
-        dateEl.textContent = data.date;
-        dateEl.style.visibility = 'visible';
-      } else {
-        dateEl.style.visibility = 'hidden';
-      }
+      const dateEl = document.getElementById('joke-date');
+      if (data.date) { dateEl.textContent = data.date; dateEl.style.visibility = 'visible'; }
+      else dateEl.style.visibility = 'hidden';
+    }
+
+    async function upvote() {
+      if (!currentJokeId) return;
+      const res = await fetch(`/api/joke/${currentJokeId}/upvote`, { method: 'POST' });
+      const data = await res.json();
+      document.getElementById('vote-count').textContent = data.votes;
+      document.getElementById('upvote-btn').classList.add('voted');
     }
 
     async function fetchToday() {
       document.getElementById('joke-text').className = 'loading';
       document.getElementById('joke-text').textContent = "Loading today's joke...";
       document.getElementById('joke-badge').style.visibility = 'hidden';
+      document.getElementById('upvote-btn').style.visibility = 'hidden';
       showJoke(await (await fetch('/api/joke/today')).json());
     }
 
@@ -163,6 +164,7 @@
       const el = document.getElementById('joke-text');
       el.className = 'loading'; el.textContent = 'Loading a joke...';
       document.getElementById('joke-badge').style.visibility = 'hidden';
+      document.getElementById('upvote-btn').style.visibility = 'hidden';
       document.getElementById('joke-date').style.visibility = 'hidden';
       const category = document.getElementById('category-select').value;
       const url = category ? `/api/joke?category=${encodeURIComponent(category)}` : '/api/joke';
@@ -171,8 +173,7 @@
 
     async function fetchById(id) {
       const data = await (await fetch(`/api/joke/${id}`)).json();
-      if (data.error) return;
-      showJoke(data);
+      if (!data.error) showJoke(data);
     }
 
     async function loadArchive() {
@@ -182,26 +183,22 @@
           <div class="archive-item" onclick="loadSharedJoke(${d.id})">
             <div class="archive-date">${d.date}</div>
             <div class="archive-joke">${d.joke}</div>
-            <div class="archive-cat">${d.category}</div>
+            <div class="archive-footer">
+              <div class="archive-cat">${d.category}</div>
+              <div class="archive-votes">👍 ${d.votes || 0}</div>
+            </div>
           </div>`).join('');
       } catch(e) {}
     }
 
-    function loadSharedJoke(id) {
-      switchTab('today');
-      fetchById(id);
-    }
+    function loadSharedJoke(id) { switchTab('random'); fetchById(id); }
 
     function shareJoke() {
-      const url = window.location.href;
-      navigator.clipboard.writeText(url).then(() => {
+      navigator.clipboard.writeText(window.location.href).then(() => {
         const btn = document.getElementById('share-btn');
-        btn.textContent = '✅ Copied!';
-        btn.classList.add('copied');
+        btn.textContent = '✅ Copied!'; btn.classList.add('copied');
         setTimeout(() => { btn.textContent = '🔗 Share'; btn.classList.remove('copied'); }, 2000);
-      }).catch(() => {
-        prompt('Copy this link:', url);
-      });
+      }).catch(() => prompt('Copy this link:', window.location.href));
     }
 
     function switchTab(tab) {
@@ -211,31 +208,19 @@
       document.getElementById('random-controls').style.display = tab === 'random' ? 'block' : 'none';
       document.getElementById('action-btn').textContent = tab === 'today' ? "↻ Reload today's joke" : 'Another one! 👴';
       document.getElementById('archive-section').style.display = tab === 'today' ? 'block' : 'none';
-      if (tab === 'today') { fetchToday(); loadArchive(); }
-      else fetchRandom();
+      if (tab === 'today') { fetchToday(); loadArchive(); } else fetchRandom();
     }
 
-    function onAction() {
-      if (currentTab === 'today') fetchToday(); else fetchRandom();
-    }
+    function onAction() { if (currentTab === 'today') fetchToday(); else fetchRandom(); }
 
-    // Handle direct link via hash on load
     async function init() {
       await loadCategories();
       const hash = window.location.hash;
       const match = hash.match(/^#joke-(\d+)$/);
       if (match) {
         await fetchById(parseInt(match[1]));
-        // Show in random tab since it might not be today's
-        currentTab = 'random';
-        document.getElementById('tab-today').className = 'tab';
-        document.getElementById('tab-random').className = 'tab active';
-        document.getElementById('random-controls').style.display = 'block';
-        document.getElementById('action-btn').textContent = 'Another one! 👴';
-        document.getElementById('archive-section').style.display = 'none';
-      } else {
-        switchTab('today');
-      }
+        switchTab('random');
+      } else switchTab('today');
     }
 
     init();
