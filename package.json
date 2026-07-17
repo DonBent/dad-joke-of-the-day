@@ -1,0 +1,13 @@
+{
+  "name": "dad-joke-of-the-day",
+  "version": "1.0.0",
+  "description": "A self-evolving dad joke web app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

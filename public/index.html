@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dad Joke of the Day</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 560px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+      text-align: center;
+    }
+    .emoji { font-size: 3rem; margin-bottom: 16px; }
+    h1 { font-size: 1.4rem; color: #888; margin-bottom: 32px; letter-spacing: 0.5px; }
+    #joke-text {
+      font-size: 1.4rem;
+      color: #333;
+      line-height: 1.6;
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 32px;
+    }
+    button {
+      background: #ff6b35;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 14px 32px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button:hover { background: #e55a26; }
+    button:active { transform: scale(0.97); }
+    .loading { color: #aaa; font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="emoji">😄</div>
+    <h1>Dad Joke of the Day</h1>
+    <div id="joke-text" class="loading">Loading a joke...</div>
+    <button id="next-btn" onclick="fetchJoke()">Another one! 👴</button>
+  </div>
+
+  <script>
+    async function fetchJoke() {
+      const el = document.getElementById('joke-text');
+      el.className = 'loading';
+      el.textContent = 'Loading a joke...';
+      try {
+        const res = await fetch('/api/joke');
+        const data = await res.json();
+        el.className = '';
+        el.textContent = data.joke;
+      } catch (e) {
+        el.textContent = 'Oops, the joke escaped. Try again!';
+      }
+    }
+    fetchJoke();
+  </script>
+</body>
+</html>
