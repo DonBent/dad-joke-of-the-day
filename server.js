@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const nodemailer = require('nodemailer');
 const builtinJokes = require('./jokes.json');
 
 const app = express();
@@ -9,6 +10,7 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'dev-admin-token';
 const VOTES_FILE = path.join(__dirname, 'votes.json');
 const CUSTOM_JOKES_FILE = path.join(__dirname, 'custom-jokes.json');
 const SUBMISSIONS_FILE = path.join(__dirname, 'submissions.json');
+const SUBSCRIBERS_FILE = process.env.SUBSCRIBERS_FILE || path.join(__dirname, 'subscribers.json');
 
 app.use(express.json());
 
@@ -247,4 +249,87 @@ app.delete('/api/admin/submissions/:sid', adminAuth, (req, res) => {
   res.json({ message: 'Rejected' });
 });
 
-app.listen(PORT, () => console.log(`Dad Joke server running on port ${PORT}`));
+// ── Subscribe / Unsubscribe ──────────────────────────────────────────────────
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+app.post('/api/subscribe', (req, res) => {
+  const { email } = req.body || {};
+  if (!email || !EMAIL_RE.test(email)) {
+    return res.status(400).json({ error: 'Valid email required' });
+  }
+  const normalized = email.toLowerCase().trim();
+  const subs = readJson(SUBSCRIBERS_FILE, []);
+  if (subs.some(s => s.email === normalized)) {
+    return res.status(409).json({ error: 'Already subscribed' });
+  }
+  subs.push({ email: normalized, subscribedAt: new Date().toISOString() });
+  writeJson(SUBSCRIBERS_FILE, subs);
+  res.status(201).json({ message: 'Subscribed! You will receive the weekly joke digest.' });
+});
+
+app.post('/api/unsubscribe', (req, res) => {
+  const { email } = req.body || {};
+  if (!email || !EMAIL_RE.test(email)) {
+    return res.status(400).json({ error: 'Valid email required' });
+  }
+  const normalized = email.toLowerCase().trim();
+  const subs = readJson(SUBSCRIBERS_FILE, []);
+  const next = subs.filter(s => s.email !== normalized);
+  if (next.length === subs.length) {
+    return res.status(404).json({ error: 'Email not found in subscribers' });
+  }
+  writeJson(SUBSCRIBERS_FILE, next);
+  res.json({ message: 'Unsubscribed successfully.' });
+});
+
+// ── Admin: send weekly digest ─────────────────────────────────────────────────
+app.post('/api/admin/send-digest', adminAuth, async (req, res) => {
+  // Collect jokes from last 7 days
+  const weekJokes = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    weekJokes.push({ ...jokeWithVotes(jokeForDate(dateStr)), date: dateStr });
+  }
+  // Deduplicate by id, top 5 by votes
+  const seen = new Set();
+  const unique = weekJokes.filter(j => { if (seen.has(j.id)) return false; seen.add(j.id); return true; });
+  const top5 = unique.sort((a, b) => b.votes - a.votes).slice(0, 5);
+
+  const subs = readJson(SUBSCRIBERS_FILE, []);
+  if (!subs.length) return res.json({ message: 'No subscribers — digest not sent.', sent: 0 });
+
+  // Build email
+  const jokeHtml = top5.map((j, i) => `<li style="margin-bottom:12px"><b>#${i + 1} (${j.votes} 👍)</b><br>${j.joke}<br><small>${j.category} · ${j.date}</small></li>`).join('');
+  const html = `<h2>🥁 Your Weekly Dad Joke Digest</h2><p>Top jokes from the past 7 days:</p><ol>${jokeHtml}</ol><p><a href="${process.env.APP_URL || 'http://localhost:3000'}">Visit the site</a> for more daily groaners!</p><hr><p style="font-size:11px;color:#888">To unsubscribe, POST to /api/unsubscribe with your email.</p>`;
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'localhost',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined
+  });
+
+  const results = { sent: 0, failed: 0 };
+  for (const sub of subs) {
+    try {
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || 'noreply@dadjoke.local',
+        to: sub.email,
+        subject: '🥁 Your Weekly Dad Joke Digest',
+        html
+      });
+      results.sent++;
+    } catch (e) {
+      results.failed++;
+    }
+  }
+  res.json({ message: 'Digest sent.', ...results });
+});
+
+if (require.main === module) {
+  app.listen(PORT, () => console.log(`Dad Joke server running on port ${PORT}`));
+}
+
+module.exports = app;
