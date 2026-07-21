@@ -103,6 +103,11 @@
       <div id="joke-badge" class="badge">—</div>
       <button class="upvote-btn" id="upvote-btn" onclick="upvote()">👍 <span id="vote-count">0</span></button>
     </div>
+    <!-- streak badge injected by v10 -->
+    <div id="streak-badge" data-testid="streak-badge" style="display:none;margin-bottom:16px;">
+      🔥 <span data-testid="streak-count" id="streak-count">1</span>-day streak!
+      <button id="streak-share-btn" data-testid="streak-share-btn" onclick="shareStreak()" style="margin-left:10px;background:#fff3ec;color:#ff6b35;border:1px solid #ffd5bf;border-radius:16px;padding:4px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;">Share 🔥</button>
+    </div>
     <div class="actions">
       <button class="primary" id="action-btn" onclick="onAction()">Another one! 👴</button>
       <button id="share-btn" onclick="shareJoke()">🔗 Share</button>
@@ -435,5 +440,53 @@
     document.getElementById('digest-sub-btn').addEventListener('click',   () => callDigest('/api/subscribe'));
     document.getElementById('digest-unsub-btn').addEventListener('click', () => callDigest('/api/unsubscribe'));
   });
+})();
+</script>
+
+<!-- streak badge + share injected by v10 -->
+<script src="/streak.js"></script>
+<script>
+(function () {
+  var LS_LAST  = 'djotd_lastVisit';
+  var LS_STREAK = 'djotd_streak';
+
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function initStreak() {
+    var lastVisit     = localStorage.getItem(LS_LAST)   || null;
+    var currentStreak = parseInt(localStorage.getItem(LS_STREAK) || '0', 10);
+    var today         = todayStr();
+    var result        = computeStreak(lastVisit, currentStreak, today);
+    localStorage.setItem(LS_LAST,   result.lastVisit);
+    localStorage.setItem(LS_STREAK, String(result.streak));
+    var badge = document.getElementById('streak-badge');
+    var count = document.getElementById('streak-count');
+    if (badge && count) {
+      count.textContent = result.streak;
+      badge.style.display = 'block';
+    }
+  }
+
+  window.shareStreak = function () {
+    var streak = localStorage.getItem(LS_STREAK) || '1';
+    var text   = '🔥 I\'m on a ' + streak + '-day Dad Joke streak! Join me at ' + window.location.origin;
+    if (navigator.share) {
+      navigator.share({ title: 'Dad Joke Streak', text: text, url: window.location.origin })
+        .catch(function () {});
+    } else {
+      navigator.clipboard.writeText(text).then(function () {
+        var btn = document.getElementById('streak-share-btn');
+        var orig = btn.textContent;
+        btn.textContent = '✅ Copied!';
+        setTimeout(function () { btn.textContent = orig; }, 2000);
+      }).catch(function () {
+        prompt('Copy your streak message:', text);
+      });
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', initStreak);
 })();
 </script>
