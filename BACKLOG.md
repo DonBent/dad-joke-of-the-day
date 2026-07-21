@@ -17,7 +17,7 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 ## Proposed (in flight)
 
-_(none)_
+- v10 — Daily visit streak + shareable badge: track consecutive daily visits in localStorage and reward users with a streak counter and shareable "N-day streak" card; zero server changes, pure client-side, directly advances the founding goal of keeping people coming back. [CID-20260721-2B7FF979]
 
 ## Rejected / Not pursuing
 
