@@ -13,10 +13,11 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 - v6 — user joke submissions with admin moderation queue
 - v7 — joke search + stats endpoint (/api/stats)
 - v8 — RSS feed for Joke of the Day + submission rate limiting (per-IP)
+- v9 — Weekly joke digest email opt-in: users subscribe with their email to receive a curated weekly roundup of the top-voted jokes [CID-20260719-4E76F8B2]
 
 ## Proposed (in flight)
 
-- (none yet)
+_(none)_
 
 ## Rejected / Not pursuing
 
