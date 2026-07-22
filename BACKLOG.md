@@ -18,7 +18,7 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 ## Proposed (in flight)
 
-_(none)_
+- v11 — "Top jokes this week" leaderboard panel: /api/jokes/top returns the 5 highest-voted jokes from the last 7 days; displayed in a collapsible panel on the main page; makes the voting system socially visible and gives the product a live community pulse. [CID-20260722-1ED2C88C]
 
 ## Rejected / Not pursuing
 
