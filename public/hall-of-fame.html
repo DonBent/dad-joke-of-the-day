@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hall of Fame — Dad Joke of the Day</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+      min-height: 100vh; display: flex; align-items: flex-start;
+      justify-content: center; padding: 40px 20px;
+    }
+    .card {
+      background: white; border-radius: 16px; padding: 40px;
+      max-width: 640px; width: 100%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12); text-align: center;
+    }
+    .nav-back {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; color: #ff6b35; text-decoration: none;
+      font-size: 0.9rem; font-weight: 600;
+    }
+    .nav-back:hover { text-decoration: underline; }
+    .emoji { font-size: 3rem; margin-bottom: 12px; }
+    h1 { font-size: 1.6rem; color: #333; margin-bottom: 6px; }
+    .subtitle { font-size: 0.9rem; color: #aaa; margin-bottom: 36px; }
+    .hof-list { text-align: left; }
+    .hof-entry {
+      background: #fafafa; border-radius: 14px;
+      padding: 20px 22px; margin-bottom: 16px;
+      border-left: 5px solid #ff6b35;
+      transition: box-shadow 0.2s;
+    }
+    .hof-entry:hover { box-shadow: 0 4px 18px rgba(255,107,53,0.12); }
+    .hof-month {
+      font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.8px; color: #ff6b35; margin-bottom: 8px;
+    }
+    .hof-text {
+      font-size: 1.05rem; color: #333; line-height: 1.6; margin-bottom: 12px;
+    }
+    .hof-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 10px;
+    }
+    .hof-score {
+      font-size: 0.85rem; color: #ff6b35; font-weight: 700;
+    }
+    .hof-actions { display: flex; gap: 8px; }
+    .hof-link {
+      font-size: 0.82rem; color: #888; text-decoration: none;
+      border: 1px solid #eee; border-radius: 12px;
+      padding: 4px 12px; transition: all 0.15s;
+    }
+    .hof-link:hover { border-color: #ff6b35; color: #ff6b35; background: #fff8f5; }
+    .hof-share-btn {
+      font-size: 0.82rem; background: none; border: 1px solid #eee;
+      border-radius: 12px; padding: 4px 12px; cursor: pointer;
+      color: #888; transition: all 0.15s; font-family: inherit;
+    }
+    .hof-share-btn:hover { border-color: #ff6b35; color: #ff6b35; background: #fff8f5; }
+    .hof-share-btn.copied { border-color: #2a9d6f; color: #2a9d6f; background: #f0fdf6; }
+    /* Empty state */
+    .empty-state {
+      padding: 48px 20px; color: #bbb; font-size: 1rem; line-height: 1.6;
+    }
+    .empty-state .empty-emoji { font-size: 3rem; margin-bottom: 16px; }
+    /* Loading */
+    .loading-state { padding: 40px 0; color: #bbb; font-style: italic; }
+    /* Dark mode */
+    @media (prefers-color-scheme: dark) {
+      body { background: linear-gradient(135deg, #2a1a0e 0%, #3d2010 100%); }
+      .card { background: #1a1a1a; }
+      h1 { color: #eee; }
+      .hof-entry { background: #222; border-left-color: #ff6b35; }
+      .hof-text { color: #ddd; }
+      .hof-link, .hof-share-btn { border-color: #333; color: #888; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <a href="/" class="nav-back" data-testid="hof-nav-back">← Back to today's joke</a>
+    <div class="emoji">🏆</div>
+    <h1>Hall of Fame</h1>
+    <p class="subtitle">The #1 top-voted dad joke from each month</p>
+
+    <div class="hof-list" id="hof-list" data-testid="hof-list">
+      <div class="loading-state" id="hof-loading">Loading the legends…</div>
+    </div>
+  </div>
+
+  <script>
+    function formatMonth(ym) {
+      const [year, month] = ym.split('-');
+      const d = new Date(parseInt(year), parseInt(month) - 1, 1);
+      return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    function shareEntry(entry, btn) {
+      const text = `🏆 Dad Joke Hall of Fame — ${formatMonth(entry.month)}: "${entry.text}" (${entry.score} 👍)`;
+      const shareData = { title: 'Dad Joke Hall of Fame', text, url: entry.permalink };
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        navigator.share(shareData).catch(() => {});
+      } else {
+        navigator.clipboard.writeText(entry.permalink).then(() => {
+          const orig = btn.textContent;
+          btn.textContent = '✅ Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
+        }).catch(() => prompt('Copy this link:', entry.permalink));
+      }
+    }
+
+    async function loadHallOfFame() {
+      const container = document.getElementById('hof-list');
+      try {
+        const res = await fetch('/api/jokes/hall-of-fame');
+        const entries = await res.json();
+        document.getElementById('hof-loading').remove();
+
+        if (!entries.length) {
+          container.innerHTML = `
+            <div class="empty-state" data-testid="hof-empty">
+              <div class="empty-emoji">🥁</div>
+              <p><strong>First winner announced at the end of the month!</strong></p>
+              <p style="margin-top:8px">Keep voting for your favourite jokes — the most-voted joke each month earns a permanent spot here.</p>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = entries.map((entry, i) => `
+          <div class="hof-entry" data-testid="hof-entry-${entry.month}">
+            <div class="hof-month">🏅 ${formatMonth(entry.month)}</div>
+            <div class="hof-text">${entry.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+            <div class="hof-footer">
+              <span class="hof-score">👍 ${entry.score} votes</span>
+              <div class="hof-actions">
+                <a class="hof-link" href="${entry.permalink}" data-testid="hof-permalink-${entry.month}">🔗 Permalink</a>
+                <button class="hof-share-btn" data-testid="hof-share-${entry.month}"
+                  onclick='shareEntry(${JSON.stringify(entry).replace(/'/g,"&#39;")}, this)'>
+                  ↗ Share
+                </button>
+              </div>
+            </div>
+          </div>`).join('');
+      } catch (e) {
+        document.getElementById('hof-loading').textContent = 'Could not load the Hall of Fame. Please try again.';
+      }
+    }
+
+    loadHallOfFame();
+  </script>
+</body>
+</html>
