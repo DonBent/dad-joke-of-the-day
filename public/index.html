@@ -490,3 +490,101 @@
   document.addEventListener('DOMContentLoaded', initStreak);
 })();
 </script>
+
+<!-- top jokes leaderboard injected by v11 -->
+<style>
+  .top-jokes-section {
+    margin-top: 20px;
+  }
+  .top-jokes-toggle {
+    width: 100%; background: none; border: 2px solid #eee;
+    border-radius: 10px; padding: 12px 16px;
+    font-size: 0.95rem; color: #888; cursor: pointer;
+    text-align: left; display: flex; justify-content: space-between;
+    align-items: center; transition: all 0.2s; font-family: inherit;
+  }
+  .top-jokes-toggle:hover { border-color: #ff6b35; color: #ff6b35; background: #fff8f5; }
+  .top-jokes-toggle .toggle-arrow { transition: transform 0.2s; font-style: normal; }
+  .top-jokes-toggle.open .toggle-arrow { transform: rotate(180deg); }
+  .top-jokes-list {
+    display: none; margin-top: 10px; text-align: left;
+  }
+  .top-jokes-list.open { display: block; }
+  .top-joke-item {
+    background: #fafafa; border-radius: 10px; padding: 12px 16px;
+    margin-bottom: 8px; border-left: 4px solid #ffd5bf;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  }
+  .top-joke-item:last-child { margin-bottom: 0; }
+  .top-joke-text { font-size: 0.93rem; color: #444; line-height: 1.5; flex: 1; }
+  .top-joke-votes { font-size: 0.8rem; color: #ff6b35; font-weight: 700; white-space: nowrap; }
+  .top-jokes-empty { font-size: 0.88rem; color: #bbb; text-align: center; padding: 12px 0; }
+  /* dark theme support */
+  @media (prefers-color-scheme: dark) {
+    .top-jokes-toggle { border-color: #333; color: #aaa; background: transparent; }
+    .top-jokes-toggle:hover { border-color: #ff6b35; color: #ff6b35; background: rgba(255,107,53,0.08); }
+    .top-joke-item { background: #1e1e1e; border-left-color: #7a3b1e; }
+    .top-joke-text { color: #ccc; }
+    .top-jokes-empty { color: #666; }
+  }
+</style>
+<script>
+(function () {
+  document.addEventListener('DOMContentLoaded', function () {
+    const card = document.querySelector('.card');
+    if (!card) return;
+
+    const section = document.createElement('div');
+    section.className = 'top-jokes-section';
+    section.innerHTML = `
+      <button class="top-jokes-toggle" data-testid="top-jokes-toggle" onclick="toggleTopJokes(this)" aria-expanded="false">
+        <span>🏆 Top this week</span>
+        <em class="toggle-arrow">▼</em>
+      </button>
+      <div class="top-jokes-list" data-testid="top-jokes-list" id="top-jokes-list"></div>`;
+
+    // Insert before submit section (or search, or digest) if present; else append
+    const before = card.querySelector('.submit-section') || card.querySelector('.search-section') || card.querySelector('.digest-section');
+    if (before) card.insertBefore(section, before);
+    else card.appendChild(section);
+
+    // Pre-fetch on page load so panel opens instantly
+    fetchTopJokes();
+  });
+
+  var _topJokesCache = null;
+
+  async function fetchTopJokes() {
+    try {
+      const data = await (await fetch('/api/jokes/top')).json();
+      _topJokesCache = data;
+      renderTopJokes(data);
+    } catch (e) {
+      _topJokesCache = [];
+    }
+  }
+
+  function renderTopJokes(jokes) {
+    const list = document.getElementById('top-jokes-list');
+    if (!list) return;
+    if (!jokes || jokes.length === 0) {
+      list.innerHTML = '<div class="top-jokes-empty">No votes yet — be the first to upvote a joke!</div>';
+      return;
+    }
+    list.innerHTML = jokes.map(j =>
+      `<div class="top-joke-item" data-testid="top-joke-${j.id}">
+        <span class="top-joke-text">${j.joke.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>
+        <span class="top-joke-votes">(👍 ${j.votes})</span>
+      </div>`
+    ).join('');
+  }
+
+  window.toggleTopJokes = function (btn) {
+    const list = document.getElementById('top-jokes-list');
+    if (!list) return;
+    const isOpen = list.classList.toggle('open');
+    btn.classList.toggle('open', isOpen);
+    btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  };
+})();
+</script>

@@ -165,6 +165,17 @@ app.get('/api/search', (req, res) => {
   res.json({ q, count: results.length, results });
 });
 
+// Top jokes leaderboard
+app.get('/api/jokes/top', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit) || 5, 20);
+  const top = allJokes()
+    .map(j => ({ id: j.id, joke: j.joke, category: j.category, votes: votes[j.id] || 0 }))
+    .filter(j => j.votes >= 1)
+    .sort((a, b) => b.votes - a.votes)
+    .slice(0, limit);
+  res.json(top);
+});
+
 // Stats
 app.get('/api/stats', (req, res) => {
   const jokes = allJokes();
