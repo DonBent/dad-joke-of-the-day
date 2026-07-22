@@ -8,6 +8,7 @@ const TMP_VOTES = path.join(os.tmpdir(), `test-votes-hof-${process.pid}.json`);
 const TMP_SUBS  = path.join(os.tmpdir(), `test-subs-hof-${process.pid}.json`);
 const TMP_HOF   = path.join(os.tmpdir(), `test-hof-${process.pid}.json`);
 
+process.env.VOTES_FILE         = TMP_VOTES;
 process.env.SUBSCRIBERS_FILE   = TMP_SUBS;
 process.env.HALL_OF_FAME_FILE  = TMP_HOF;
 
@@ -27,6 +28,7 @@ const app = require('../server');
 
 afterAll(() => {
   [TMP_VOTES, TMP_SUBS, TMP_HOF].forEach(f => { try { fs.unlinkSync(f); } catch {} });
+  delete process.env.VOTES_FILE;
   // reset hall-of-fame file env
   delete process.env.HALL_OF_FAME_FILE;
 });
