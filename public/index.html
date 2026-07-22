@@ -23,6 +23,7 @@
     .tab {
       padding: 8px 20px; border-radius: 20px; border: 2px solid #eee;
       background: #fafafa; color: #888; font-size: 0.9rem; cursor: pointer; transition: all 0.2s;
+      text-decoration: none; display: inline-block;
     }
     .tab.active { background: #ff6b35; color: white; border-color: #ff6b35; }
     .category-filter { margin-bottom: 20px; }
@@ -91,6 +92,7 @@
     <div class="tabs">
       <div class="tab active" id="tab-today" onclick="switchTab('today')">📅 Today's Joke</div>
       <div class="tab" id="tab-random" onclick="switchTab('random')">🎲 Random</div>
+      <a class="tab" id="tab-hof" href="/hall-of-fame" data-testid="nav-hall-of-fame">🏆 Hall of Fame</a>
     </div>
     <div id="random-controls" style="display:none" class="category-filter">
       <select id="category-select" onchange="fetchRandom()">

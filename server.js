@@ -11,6 +11,7 @@ const VOTES_FILE = path.join(__dirname, 'votes.json');
 const CUSTOM_JOKES_FILE = path.join(__dirname, 'custom-jokes.json');
 const SUBMISSIONS_FILE = path.join(__dirname, 'submissions.json');
 const SUBSCRIBERS_FILE = process.env.SUBSCRIBERS_FILE || path.join(__dirname, 'subscribers.json');
+const HALL_OF_FAME_FILE = process.env.HALL_OF_FAME_FILE || path.join(__dirname, 'hall-of-fame.json');
 
 app.use(express.json());
 
@@ -163,6 +164,60 @@ app.get('/api/search', (req, res) => {
   if (!q) return res.status(400).json({ error: 'q parameter required' });
   const results = allJokes().filter(j => j.joke.toLowerCase().includes(q)).map(jokeWithVotes);
   res.json({ q, count: results.length, results });
+});
+
+// Hall of Fame
+app.get('/api/jokes/hall-of-fame', (req, res) => {
+  const hall = readJson(HALL_OF_FAME_FILE, []);
+  // Return reverse-chronological (most recent month first)
+  const sorted = [...hall].sort((a, b) => b.month.localeCompare(a.month));
+  res.json(sorted);
+});
+
+// Admin: freeze month winner into hall of fame
+app.post('/api/admin/freeze-hall-of-fame', adminAuth, (req, res) => {
+  const { month } = req.body || {};
+  // Validate month format YYYY-MM
+  const monthStr = month || (() => {
+    const d = new Date();
+    // Default: freeze the previous month
+    d.setDate(0); // last day of previous month
+    return d.toISOString().slice(0, 7);
+  })();
+  if (!/^\d{4}-\d{2}$/.test(monthStr)) {
+    return res.status(400).json({ error: 'month must be YYYY-MM' });
+  }
+  const hall = readJson(HALL_OF_FAME_FILE, []);
+  if (hall.some(e => e.month === monthStr)) {
+    return res.status(409).json({ error: `Hall of Fame entry for ${monthStr} already exists` });
+  }
+  // Find the top-voted joke
+  const top = allJokes()
+    .map(j => ({ id: j.id, joke: j.joke, category: j.category, score: votes[j.id] || 0 }))
+    .filter(j => j.score >= 1)
+    .sort((a, b) => b.score - a.score);
+  if (!top.length) {
+    return res.status(422).json({ error: 'No voted jokes to freeze' });
+  }
+  const winner = top[0];
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const entry = {
+    month: monthStr,
+    jokeId: winner.id,
+    text: winner.joke,
+    score: winner.score,
+    permalink: `${baseUrl}/#joke-${winner.id}`,
+    frozenAt: new Date().toISOString()
+  };
+  hall.push(entry);
+  writeJson(HALL_OF_FAME_FILE, hall);
+  console.log(JSON.stringify({ event: 'hall_of_fame_frozen', month: monthStr, jokeId: winner.id, score: winner.score }));
+  res.status(201).json(entry);
+});
+
+// Serve /hall-of-fame page
+app.get('/hall-of-fame', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'hall-of-fame.html'));
 });
 
 // Top jokes leaderboard
