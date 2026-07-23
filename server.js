@@ -93,6 +93,12 @@ app.get('/api/categories', (req, res) => {
   res.json(categories);
 });
 
+// Tags endpoint — derived dynamically from all jokes
+app.get('/api/tags', (req, res) => {
+  const tags = [...new Set(allJokes().flatMap(j => j.tags || ['classic']))].sort();
+  res.json(tags);
+});
+
 app.post('/api/joke/:id/upvote', (req, res) => {
   const id = parseInt(req.params.id);
   if (!allJokes().find(j => j.id === id)) return res.status(404).json({ error: 'Joke not found' });
@@ -236,6 +242,8 @@ app.get('/api/stats', (req, res) => {
   const jokes = allJokes();
   const categoryCounts = {};
   jokes.forEach(j => { categoryCounts[j.category] = (categoryCounts[j.category] || 0) + 1; });
+  const tagCounts = {};
+  jokes.forEach(j => (j.tags || ['classic']).forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; }));
   const topVoted = jokes
     .map(j => ({ id: j.id, joke: j.joke.slice(0, 60) + (j.joke.length > 60 ? '…' : ''), votes: votes[j.id] || 0 }))
     .sort((a, b) => b.votes - a.votes)
@@ -246,17 +254,22 @@ app.get('/api/stats', (req, res) => {
     builtinJokes: builtinJokes.length,
     customJokes: jokes.length - builtinJokes.length,
     categories: categoryCounts,
+    tags: tagCounts,
     pendingSubmissions: subs.length,
     topVoted
   });
 });
 
 app.get('/api/joke', (req, res) => {
-  const { category } = req.query;
+  const { category, tag } = req.query;
   let pool = allJokes();
   if (category) {
     pool = pool.filter(j => j.category === category);
     if (!pool.length) return res.status(404).json({ error: `No jokes found for category: ${category}` });
+  }
+  if (tag) {
+    pool = pool.filter(j => (j.tags || ['classic']).includes(tag));
+    if (!pool.length) return res.status(404).json({ error: `No jokes found for tag: ${tag}` });
   }
   res.json(jokeWithVotes(weightedRandom(pool)));
 });
@@ -273,14 +286,15 @@ app.post('/api/submit', (req, res) => {
   if (!checkRateLimit(ip)) {
     return res.status(429).json({ error: 'Too many submissions. Please wait before submitting again.' });
   }
-  const { joke, category } = req.body || {};
+  const { joke, category, tags: submittedTags } = req.body || {};
   if (!joke || typeof joke !== 'string' || joke.trim().length < 10) {
     return res.status(400).json({ error: 'joke must be at least 10 characters' });
   }
   const validCategories = [...new Set(builtinJokes.map(j => j.category))];
   const cat = validCategories.includes(category) ? category : 'general';
+  const tags = (Array.isArray(submittedTags) && submittedTags.length) ? submittedTags : [];
   const subs = readJson(SUBMISSIONS_FILE, []);
-  const sub = { sid: Date.now(), joke: joke.trim(), category: cat, submittedAt: new Date().toISOString() };
+  const sub = { sid: Date.now(), joke: joke.trim(), category: cat, tags, submittedAt: new Date().toISOString() };
   subs.push(sub);
   writeJson(SUBMISSIONS_FILE, subs);
   res.status(201).json({ message: 'Submitted! Your joke will appear after moderation.', sid: sub.sid });
@@ -299,10 +313,26 @@ app.post('/api/admin/approve/:sid', adminAuth, (req, res) => {
   const [sub] = subs.splice(idx, 1);
   writeJson(SUBMISSIONS_FILE, subs);
   const custom = readJson(CUSTOM_JOKES_FILE, []);
-  const newJoke = { id: nextId(), joke: sub.joke, category: sub.category };
+  // Accept optional tags from request body; fall back to submission tags or default
+  const bodyTags = (req.body && Array.isArray(req.body.tags)) ? req.body.tags : null;
+  const tags = bodyTags || sub.tags || ['classic'];
+  const newJoke = { id: nextId(), joke: sub.joke, category: sub.category, tags };
   custom.push(newJoke);
   writeJson(CUSTOM_JOKES_FILE, custom);
   res.json({ message: 'Approved', joke: newJoke });
+});
+
+// Admin: set tags on a submission without approving it yet
+app.patch('/api/admin/submissions/:sid/tags', adminAuth, (req, res) => {
+  const sid = parseInt(req.params.sid);
+  const { tags } = req.body || {};
+  if (!Array.isArray(tags)) return res.status(400).json({ error: 'tags must be an array' });
+  let subs = readJson(SUBMISSIONS_FILE, []);
+  const idx = subs.findIndex(s => s.sid === sid);
+  if (idx === -1) return res.status(404).json({ error: 'Submission not found' });
+  subs[idx].tags = tags;
+  writeJson(SUBMISSIONS_FILE, subs);
+  res.json({ message: 'Tags updated', submission: subs[idx] });
 });
 
 app.delete('/api/admin/submissions/:sid', adminAuth, (req, res) => {

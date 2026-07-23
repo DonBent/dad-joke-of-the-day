@@ -1,17 +1,242 @@
 [
-  { "id": 1, "joke": "Why don't scientists trust atoms? Because they make up everything.", "category": "science" },
-  { "id": 2, "joke": "I'm reading a book about anti-gravity. It's impossible to put down.", "category": "science" },
-  { "id": 3, "joke": "Did you hear about the mathematician who's afraid of negative numbers? He'll stop at nothing to avoid them.", "category": "science" },
-  { "id": 4, "joke": "Why did the scarecrow win an award? Because he was outstanding in his field.", "category": "general" },
-  { "id": 5, "joke": "I used to hate facial hair, but then it grew on me.", "category": "wordplay" },
-  { "id": 6, "joke": "What do you call cheese that isn't yours? Nacho cheese.", "category": "food" },
-  { "id": 7, "joke": "How do you organize a space party? You planet.", "category": "science" },
-  { "id": 8, "joke": "Why can't you give Elsa a balloon? Because she'll let it go.", "category": "general" },
-  { "id": 9, "joke": "What do you call a fake noodle? An impasta.", "category": "food" },
-  { "id": 10, "joke": "Why did the bicycle fall over? Because it was two-tired.", "category": "wordplay" },
-  { "id": 11, "joke": "I would tell you a joke about construction, but I'm still working on it.", "category": "wordplay" },
-  { "id": 12, "joke": "What do you call a fish without eyes? A fsh.", "category": "animals" },
-  { "id": 13, "joke": "Why do cows wear bells? Because their horns don't work.", "category": "animals" },
-  { "id": 14, "joke": "What do you call a sleeping dinosaur? A dino-snore.", "category": "animals" },
-  { "id": 15, "joke": "I told my wife she should embrace her mistakes. She gave me a hug.", "category": "general" }
+  {
+    "id": 1,
+    "joke": "Why don't scientists trust atoms? Because they make up everything.",
+    "category": "science",
+    "tags": ["science", "classic", "wordplay"]
+  },
+  {
+    "id": 2,
+    "joke": "I'm reading a book about anti-gravity. It's impossible to put down.",
+    "category": "science",
+    "tags": ["science", "classic", "books"]
+  },
+  {
+    "id": 3,
+    "joke": "Did you hear about the mathematician who's afraid of negative numbers? He'll stop at nothing to avoid them.",
+    "category": "science",
+    "tags": ["science", "math", "classic"]
+  },
+  {
+    "id": 4,
+    "joke": "Why did the scarecrow win an award? Because he was outstanding in his field.",
+    "category": "general",
+    "tags": ["general", "classic", "wordplay"]
+  },
+  {
+    "id": 5,
+    "joke": "I used to hate facial hair, but then it grew on me.",
+    "category": "wordplay",
+    "tags": ["wordplay", "classic"]
+  },
+  {
+    "id": 6,
+    "joke": "What do you call cheese that isn't yours? Nacho cheese.",
+    "category": "food",
+    "tags": ["food", "classic", "wordplay"]
+  },
+  {
+    "id": 7,
+    "joke": "How do you organize a space party? You planet.",
+    "category": "science",
+    "tags": ["science", "space", "classic"]
+  },
+  {
+    "id": 8,
+    "joke": "Why can't you give Elsa a balloon? Because she'll let it go.",
+    "category": "general",
+    "tags": ["general", "classic", "pop-culture"]
+  },
+  {
+    "id": 9,
+    "joke": "What do you call a fake noodle? An impasta.",
+    "category": "food",
+    "tags": ["food", "classic", "wordplay"]
+  },
+  {
+    "id": 10,
+    "joke": "Why did the bicycle fall over? Because it was two-tired.",
+    "category": "wordplay",
+    "tags": ["wordplay", "classic", "vehicles"]
+  },
+  {
+    "id": 11,
+    "joke": "I would tell you a joke about construction, but I'm still working on it.",
+    "category": "wordplay",
+    "tags": ["wordplay", "classic", "work"]
+  },
+  {
+    "id": 12,
+    "joke": "What do you call a fish without eyes? A fsh.",
+    "category": "animals",
+    "tags": ["animals", "classic", "wordplay"]
+  },
+  {
+    "id": 13,
+    "joke": "Why do cows wear bells? Because their horns don't work.",
+    "category": "animals",
+    "tags": ["animals", "classic"]
+  },
+  {
+    "id": 14,
+    "joke": "What do you call a sleeping dinosaur? A dino-snore.",
+    "category": "animals",
+    "tags": ["animals", "classic", "wordplay"]
+  },
+  {
+    "id": 15,
+    "joke": "I told my wife she should embrace her mistakes. She gave me a hug.",
+    "category": "general",
+    "tags": ["general", "classic", "family"]
+  },
+  {
+    "id": 16,
+    "joke": "Why do programmers prefer dark mode? Because light attracts bugs.",
+    "category": "tech",
+    "tags": ["tech", "classic", "programming"]
+  },
+  {
+    "id": 17,
+    "joke": "A SQL query walks into a bar, walks up to two tables and asks... 'Can I join you?'",
+    "category": "tech",
+    "tags": ["tech", "programming", "classic"]
+  },
+  {
+    "id": 18,
+    "joke": "Why did the developer go broke? Because he used up all his cache.",
+    "category": "tech",
+    "tags": ["tech", "programming", "wordplay"]
+  },
+  {
+    "id": 19,
+    "joke": "How many programmers does it take to change a light bulb? None — that's a hardware problem.",
+    "category": "tech",
+    "tags": ["tech", "programming", "classic"]
+  },
+  {
+    "id": 20,
+    "joke": "Why don't programmers like nature? It has too many bugs.",
+    "category": "tech",
+    "tags": ["tech", "programming", "animals"]
+  },
+  {
+    "id": 21,
+    "joke": "What do you call a bear with no teeth? A gummy bear.",
+    "category": "animals",
+    "tags": ["animals", "food", "wordplay"]
+  },
+  {
+    "id": 22,
+    "joke": "Why can't your nose be 12 inches long? Because then it would be a foot.",
+    "category": "wordplay",
+    "tags": ["wordplay", "classic"]
+  },
+  {
+    "id": 23,
+    "joke": "Did you hear about the claustrophobic astronaut? He just needed a little space.",
+    "category": "science",
+    "tags": ["science", "space", "wordplay"]
+  },
+  {
+    "id": 24,
+    "joke": "Why did the tomato turn red? Because it saw the salad dressing.",
+    "category": "food",
+    "tags": ["food", "classic", "wordplay"]
+  },
+  {
+    "id": 25,
+    "joke": "I only know 25 letters of the alphabet. I don't know y.",
+    "category": "wordplay",
+    "tags": ["wordplay", "classic"]
+  },
+  {
+    "id": 26,
+    "joke": "What do you call a dog magician? A labracadabrador.",
+    "category": "animals",
+    "tags": ["animals", "wordplay", "classic"]
+  },
+  {
+    "id": 27,
+    "joke": "Why did the coffee file a police report? It got mugged.",
+    "category": "food",
+    "tags": ["food", "wordplay", "classic"]
+  },
+  {
+    "id": 28,
+    "joke": "I'm on a seafood diet. I see food and I eat it.",
+    "category": "food",
+    "tags": ["food", "classic", "wordplay"]
+  },
+  {
+    "id": 29,
+    "joke": "Why did the kid throw his clock out the window? To see time fly.",
+    "category": "general",
+    "tags": ["general", "classic", "wordplay", "family"]
+  },
+  {
+    "id": 30,
+    "joke": "What do you call a group of musical whales? An orca-stra.",
+    "category": "animals",
+    "tags": ["animals", "music", "wordplay"]
+  },
+  {
+    "id": 31,
+    "joke": "I asked my dog what 2 minus 2 is. He said nothing.",
+    "category": "animals",
+    "tags": ["animals", "math", "classic"]
+  },
+  {
+    "id": 32,
+    "joke": "Why did the gym close down? It just didn't work out.",
+    "category": "general",
+    "tags": ["general", "wordplay", "work"]
+  },
+  {
+    "id": 33,
+    "joke": "I have a joke about chemistry, but I know I wouldn't get a reaction.",
+    "category": "science",
+    "tags": ["science", "wordplay", "classic"]
+  },
+  {
+    "id": 34,
+    "joke": "Why do skeletons never fight each other? They don't have the guts.",
+    "category": "general",
+    "tags": ["general", "classic", "wordplay"]
+  },
+  {
+    "id": 35,
+    "joke": "What concert can you attend for just 45 cents? 50 Cent featuring Nickelback.",
+    "category": "general",
+    "tags": ["general", "music", "pop-culture"]
+  },
+  {
+    "id": 36,
+    "joke": "Why don't eggs tell jokes? They'd crack each other up.",
+    "category": "food",
+    "tags": ["food", "wordplay", "classic"]
+  },
+  {
+    "id": 37,
+    "joke": "What do you call a pony with a sore throat? A little horse.",
+    "category": "animals",
+    "tags": ["animals", "wordplay", "classic"]
+  },
+  {
+    "id": 38,
+    "joke": "I'm reading a book about teleportation. It's bound to take me somewhere.",
+    "category": "wordplay",
+    "tags": ["wordplay", "books", "science"]
+  },
+  {
+    "id": 39,
+    "joke": "Did you hear about the Italian chef who died? He pasta-way.",
+    "category": "food",
+    "tags": ["food", "wordplay", "classic"]
+  },
+  {
+    "id": 40,
+    "joke": "Why did the computer go to the doctor? It had a virus.",
+    "category": "tech",
+    "tags": ["tech", "classic", "programming"]
+  }
 ]

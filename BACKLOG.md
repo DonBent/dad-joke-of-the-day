@@ -16,10 +16,11 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 - v9 — Weekly joke digest email opt-in: users subscribe with their email to receive a curated weekly roundup of the top-voted jokes [CID-20260719-4E76F8B2]
 - v10 — Daily visit streak + shareable badge: localStorage streak counter + 🔥 badge + Web Share API card; pure client-side [CID-20260721-2B7FF979]
 - v11 — "Top jokes this week" leaderboard panel: /api/jokes/top + collapsible panel surfacing the voting system as community social proof [CID-20260722-1ED2C88C]
+- v12 — "Joke of the Month" Hall of Fame: permanent `/hall-of-fame` page listing each month's #1 top-voted joke with score, date, and shareable permalink [CID-20260722-A3C91D7F]
 
 ## Proposed (in flight)
 
-_(none)_
+- v13 — Joke categories & tag filter: tag each joke with one or more categories (e.g. "animals", "food", "tech", "classic") stored in jokes.json, expose a tag-filter UI on the main page, and add `?tag=` query param support — gives casual visitors a way to explore the curated pool by topic and makes the daily micro-interaction feel more personal [CID-20260723-2F5479FA]
 
 ## Rejected / Not pursuing
 
