@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const builtinJokes = require('./jokes.json');
 
@@ -8,12 +9,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'dev-admin-token';
 const VOTES_FILE = process.env.VOTES_FILE || path.join(__dirname, 'votes.json');
-const CUSTOM_JOKES_FILE = path.join(__dirname, 'custom-jokes.json');
-const SUBMISSIONS_FILE = path.join(__dirname, 'submissions.json');
+const CUSTOM_JOKES_FILE = process.env.CUSTOM_JOKES_FILE || path.join(__dirname, 'custom-jokes.json');
+const SUBMISSIONS_FILE = process.env.SUBMISSIONS_FILE || path.join(__dirname, 'submissions.json');
 const SUBSCRIBERS_FILE = process.env.SUBSCRIBERS_FILE || path.join(__dirname, 'subscribers.json');
 const HALL_OF_FAME_FILE = process.env.HALL_OF_FAME_FILE || path.join(__dirname, 'hall-of-fame.json');
 
 app.use(express.json());
+app.set('trust proxy', 1); // trust first proxy for accurate req.ip in tests/production
 
 // ── Persistence helpers ──────────────────────────────────────────────────────
 function readJson(file, def) {
@@ -220,6 +222,57 @@ app.get('/hall-of-fame', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'hall-of-fame.html'));
 });
 
+// ── My Jokes (contributor dashboard) ────────────────────────────────────────
+app.get('/api/my-jokes', (req, res) => {
+  const { token } = req.query;
+  if (!token) return res.status(400).json({ error: 'token parameter required' });
+
+  const hall = readJson(HALL_OF_FAME_FILE, []);
+  const hofIds = new Set(hall.map(e => e.jokeId));
+
+  // Pending submissions for this token
+  const subs = readJson(SUBMISSIONS_FILE, []);
+  const pending = subs
+    .filter(s => s.submitterToken === token)
+    .map(s => ({
+      id: `sub-${s.sid}`,
+      joke: s.joke,
+      category: s.category,
+      tags: s.tags || [],
+      status: 'pending',
+      voteScore: 0,
+      monthlyWins: 0,
+      submittedAt: s.submittedAt
+    }));
+
+  // Approved custom jokes for this token
+  const custom = readJson(CUSTOM_JOKES_FILE, []);
+  const approved = custom
+    .filter(j => j.submitterToken === token)
+    .map(j => ({
+      id: j.id,
+      joke: j.joke,
+      category: j.category,
+      tags: j.tags || [],
+      status: 'approved',
+      voteScore: votes[j.id] || 0,
+      monthlyWins: hofIds.has(j.id) ? hall.filter(e => e.jokeId === j.id).length : 0,
+      submittedAt: j.submittedAt || null
+    }));
+
+  const all = [...pending, ...approved].sort((a, b) => {
+    const ta = a.submittedAt || ''; const tb = b.submittedAt || '';
+    return tb.localeCompare(ta);
+  });
+
+  res.json({ count: all.length, jokes: all });
+});
+
+// Serve /my-jokes page
+app.get('/my-jokes', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'my-jokes.html'));
+});
+
 // Top jokes leaderboard
 app.get('/api/jokes/top', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 5, 20);
@@ -279,11 +332,12 @@ app.post('/api/submit', (req, res) => {
   }
   const validCategories = [...new Set(builtinJokes.map(j => j.category))];
   const cat = validCategories.includes(category) ? category : 'general';
+  const submitterToken = crypto.randomUUID();
   const subs = readJson(SUBMISSIONS_FILE, []);
-  const sub = { sid: Date.now(), joke: joke.trim(), category: cat, submittedAt: new Date().toISOString() };
+  const sub = { sid: Date.now(), joke: joke.trim(), category: cat, submitterToken, submittedAt: new Date().toISOString() };
   subs.push(sub);
   writeJson(SUBMISSIONS_FILE, subs);
-  res.status(201).json({ message: 'Submitted! Your joke will appear after moderation.', sid: sub.sid });
+  res.status(201).json({ message: 'Submitted! Your joke will appear after moderation.', sid: sub.sid, submitterToken });
 });
 
 // ── Admin API ────────────────────────────────────────────────────────────────
@@ -299,7 +353,14 @@ app.post('/api/admin/approve/:sid', adminAuth, (req, res) => {
   const [sub] = subs.splice(idx, 1);
   writeJson(SUBMISSIONS_FILE, subs);
   const custom = readJson(CUSTOM_JOKES_FILE, []);
-  const newJoke = { id: nextId(), joke: sub.joke, category: sub.category };
+  const newJoke = {
+    id: nextId(),
+    joke: sub.joke,
+    category: sub.category,
+    tags: sub.tags || [],
+    submittedAt: sub.submittedAt || new Date().toISOString()
+  };
+  if (sub.submitterToken) newJoke.submitterToken = sub.submitterToken;
   custom.push(newJoke);
   writeJson(CUSTOM_JOKES_FILE, custom);
   res.json({ message: 'Approved', joke: newJoke });

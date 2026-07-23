@@ -299,9 +299,14 @@
       });
       const data = await res.json();
       if (res.ok) {
-        msg.textContent = data.message;
+        // Store submitter token in localStorage (v14)
+        if (data.submitterToken) {
+          localStorage.setItem('djotd_submitter_token', data.submitterToken);
+        }
+        msg.textContent = data.message + ' → <a href="/my-jokes" style="color:#ff6b35">Track your jokes</a>';
+        msg.innerHTML = msg.textContent;
         document.getElementById('sub-joke').value = '';
-        setTimeout(() => document.getElementById('submit-form').classList.remove('open'), 3000);
+        setTimeout(() => document.getElementById('submit-form').classList.remove('open'), 4000);
       } else {
         msg.className = 'submit-msg error'; msg.textContent = data.error;
       }

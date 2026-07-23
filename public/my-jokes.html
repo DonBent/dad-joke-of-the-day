@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Jokes — Dad Joke of the Day</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+      min-height: 100vh; display: flex; align-items: flex-start;
+      justify-content: center; padding: 20px;
+    }
+    .card {
+      background: white; border-radius: 16px; padding: 40px;
+      max-width: 680px; width: 100%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12); margin-top: 20px;
+    }
+    .back-link {
+      display: inline-block; margin-bottom: 20px;
+      color: #ff6b35; text-decoration: none; font-size: 0.9rem; font-weight: 600;
+    }
+    .back-link:hover { text-decoration: underline; }
+    .emoji { font-size: 2.5rem; text-align: center; margin-bottom: 10px; }
+    h1 { font-size: 1.5rem; color: #333; text-align: center; margin-bottom: 6px; }
+    .subtitle { text-align: center; color: #aaa; font-size: 0.9rem; margin-bottom: 30px; }
+    /* Empty state */
+    .empty-state {
+      text-align: center; padding: 40px 20px; color: #bbb;
+    }
+    .empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty-state p { font-size: 0.95rem; line-height: 1.6; }
+    .empty-state a { color: #ff6b35; font-weight: 600; text-decoration: none; }
+    .empty-state a:hover { text-decoration: underline; }
+    /* Stats bar */
+    .stats-bar {
+      display: flex; gap: 16px; justify-content: center;
+      flex-wrap: wrap; margin-bottom: 24px;
+    }
+    .stat-chip {
+      background: #fff3ec; border: 1px solid #ffd5bf;
+      border-radius: 20px; padding: 6px 18px;
+      font-size: 0.85rem; color: #ff6b35; font-weight: 600;
+    }
+    /* Joke cards */
+    .joke-list { display: flex; flex-direction: column; gap: 14px; }
+    .joke-card {
+      background: #fafafa; border-radius: 12px; padding: 18px 20px;
+      border-left: 5px solid #ffd5bf; transition: border-color 0.15s;
+    }
+    .joke-card.approved { border-left-color: #2a9d6f; }
+    .joke-card.pending  { border-left-color: #f4a261; }
+    .joke-card.hof      { border-left-color: #e9c46a; background: #fffbf0; }
+    .joke-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 10px; margin-bottom: 8px;
+    }
+    .joke-text { font-size: 1rem; color: #333; line-height: 1.55; flex: 1; }
+    .badge-group { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+    .status-badge {
+      border-radius: 20px; padding: 3px 12px; font-size: 0.75rem;
+      font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .status-badge.approved { background: #d4f5e2; color: #1a7a4a; }
+    .status-badge.pending  { background: #fde8cc; color: #b85c00; }
+    .hof-badge {
+      font-size: 0.8rem; font-weight: 700; color: #b8860b;
+      background: #fff8dc; border: 1px solid #e9c46a;
+      border-radius: 20px; padding: 3px 12px; white-space: nowrap;
+    }
+    .joke-meta {
+      display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+      margin-top: 8px; font-size: 0.78rem; color: #bbb;
+    }
+    .vote-score { color: #ff6b35; font-weight: 700; }
+    .category-tag {
+      background: #fff3ec; color: #ff6b35; border: 1px solid #ffd5bf;
+      border-radius: 12px; padding: 2px 10px; font-size: 0.72rem;
+      font-weight: 600; text-transform: uppercase;
+    }
+    .tag-pill {
+      background: #f0f0f0; color: #888; border-radius: 12px;
+      padding: 2px 8px; font-size: 0.72rem;
+    }
+    /* Loading */
+    .loading-msg { text-align: center; color: #aaa; font-style: italic; padding: 30px 0; }
+    /* Dark mode */
+    @media (prefers-color-scheme: dark) {
+      body { background: linear-gradient(135deg, #2c1a0e 0%, #3d2b1f 100%); }
+      .card { background: #1a1a1a; }
+      h1 { color: #eee; }
+      .subtitle { color: #666; }
+      .joke-card { background: #1e1e1e; border-left-color: #5a3b1e; }
+      .joke-card.approved { border-left-color: #1a7a4a; }
+      .joke-card.pending  { border-left-color: #b85c00; }
+      .joke-card.hof      { background: #2a2510; border-left-color: #b8860b; }
+      .joke-text { color: #ccc; }
+      .joke-meta { color: #666; }
+      .tag-pill { background: #2a2a2a; color: #888; }
+      .empty-state { color: #555; }
+      .stat-chip { background: #2a1a0e; border-color: #5a3b1e; }
+      .back-link { color: #ff8c5a; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <a class="back-link" href="/">← Back to home</a>
+    <div class="emoji">🎤</div>
+    <h1>My Jokes</h1>
+    <p class="subtitle">Track your submissions, votes, and hall-of-fame wins</p>
+
+    <div id="content">
+      <div class="loading-msg">Loading your jokes…</div>
+    </div>
+  </div>
+
+  <script>
+    const LS_TOKEN = 'djotd_submitter_token';
+
+    function statusLabel(status) {
+      if (status === 'approved') return '<span class="status-badge approved">✓ Approved</span>';
+      return '<span class="status-badge pending">⏳ Pending</span>';
+    }
+
+    function renderEmpty() {
+      return `
+        <div class="empty-state">
+          <div class="empty-icon">🤷</div>
+          <p>No submissions tracked yet.<br>
+          <a href="/">Submit a joke</a> and your dashboard will appear here automatically.</p>
+          <p style="margin-top:12px;font-size:0.8rem;color:#ddd">
+            Note: submissions made before v14 are not tracked.
+          </p>
+        </div>`;
+    }
+
+    function renderJokes(jokes, token) {
+      if (!jokes.length) return renderEmpty();
+
+      const totalVotes = jokes.reduce((s, j) => s + j.voteScore, 0);
+      const wins = jokes.reduce((s, j) => s + j.monthlyWins, 0);
+      const approved = jokes.filter(j => j.status === 'approved').length;
+
+      const statsHtml = `
+        <div class="stats-bar">
+          <div class="stat-chip">📝 ${jokes.length} joke${jokes.length !== 1 ? 's' : ''}</div>
+          <div class="stat-chip">✓ ${approved} approved</div>
+          <div class="stat-chip">👍 ${totalVotes} total vote${totalVotes !== 1 ? 's' : ''}</div>
+          ${wins ? `<div class="stat-chip">🏆 ${wins} monthly win${wins !== 1 ? 's' : ''}</div>` : ''}
+        </div>`;
+
+      const cardsHtml = jokes.map(j => {
+        const isHof = j.monthlyWins > 0;
+        const cardClass = isHof ? 'joke-card hof' : `joke-card ${j.status}`;
+        const tagsHtml = j.tags.length
+          ? j.tags.map(t => `<span class="tag-pill">${t}</span>`).join(' ')
+          : '';
+        return `
+          <div class="${cardClass}" data-testid="my-joke-${j.id}">
+            <div class="joke-header">
+              <div class="joke-text">${j.joke.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+              <div class="badge-group">
+                ${statusLabel(j.status)}
+                ${isHof ? `<span class="hof-badge">🏆 Hall of Fame ×${j.monthlyWins}</span>` : ''}
+              </div>
+            </div>
+            <div class="joke-meta">
+              <span class="category-tag">${j.category}</span>
+              ${j.status === 'approved' ? `<span class="vote-score">👍 ${j.voteScore}</span>` : ''}
+              ${tagsHtml}
+              ${j.submittedAt ? `<span>${new Date(j.submittedAt).toLocaleDateString()}</span>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+
+      return statsHtml + '<div class="joke-list">' + cardsHtml + '</div>';
+    }
+
+    async function init() {
+      const token = localStorage.getItem(LS_TOKEN);
+      const content = document.getElementById('content');
+
+      if (!token) {
+        content.innerHTML = renderEmpty();
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/my-jokes?token=${encodeURIComponent(token)}`);
+        if (!res.ok) throw new Error('API error');
+        const data = await res.json();
+        content.innerHTML = renderJokes(data.jokes, token);
+      } catch (e) {
+        content.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">⚠️</div>
+            <p>Could not load your jokes. Please try again later.</p>
+          </div>`;
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
