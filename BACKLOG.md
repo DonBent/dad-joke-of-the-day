@@ -18,9 +18,9 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 - v11 — "Top jokes this week" leaderboard panel: /api/jokes/top + collapsible panel surfacing the voting system as community social proof [CID-20260722-1ED2C88C]
 - v12 — "Joke of the Month" Hall of Fame: permanent `/hall-of-fame` page listing each month's #1 top-voted joke with score, date, and shareable permalink [CID-20260722-A3C91D7F]
 
-## Proposed (in flight)
-
 - v13 — Joke categories & tag filter: tag each joke with one or more categories (e.g. "animals", "food", "tech", "classic") stored in jokes.json, expose a tag-filter UI on the main page, and add `?tag=` query param support — gives casual visitors a way to explore the curated pool by topic and makes the daily micro-interaction feel more personal [CID-20260723-2F5479FA]
+
+## Proposed (in flight)
 
 ## Rejected / Not pursuing
 

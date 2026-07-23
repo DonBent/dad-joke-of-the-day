@@ -12,16 +12,16 @@
 **Active:** YES
 **IdeationExhausted:** NO
 **Current Cycle Correlation ID:** CID-20260723-2F5479FA
-**Stage:** IDEATED
-**Last Release Version:** v12
-**Last Release At:** 2026-07-22
+**Stage:** RELEASED
+**Last Release Version:** v13
+**Last Release At:** 2026-07-23
 
 ---
 
 ## Notes
 
 - Port 3040 reserved in PORT-REGISTRY.md
-- v1–v12 shipped: daily joke rotation, voting, weighted random, shareable links, user submissions + moderation, search, stats, RSS feed, submission rate limiting, email digest, streak badge, weekly leaderboard, hall of fame
+- v1–v13 shipped: daily joke rotation, voting, weighted random, shareable links, user submissions + moderation, search, stats, RSS feed, submission rate limiting, email digest, streak badge, weekly leaderboard, hall of fame, joke tag/category filter
 - Custom jokes (user-submitted, approved) live in custom-jokes.json; main pool in jokes.json
 - No auth system — moderation is admin-flag based
 - Keep the tone light and groan-worthy; this is not a serious content platform
