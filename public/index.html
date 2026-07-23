@@ -32,6 +32,16 @@
       font-size: 0.95rem; color: #555; cursor: pointer; outline: none; background: #fafafa;
     }
     .category-filter select:focus { border-color: #ff6b35; }
+    .tag-filter { margin-bottom: 20px; }
+    .tag-filter-label { font-size: 0.8rem; color: #aaa; margin-bottom: 8px; }
+    .tag-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+    .tag-chip {
+      padding: 5px 14px; border-radius: 20px; border: 2px solid #eee;
+      background: #fafafa; color: #888; font-size: 0.82rem; cursor: pointer;
+      transition: all 0.18s; user-select: none;
+    }
+    .tag-chip:hover { border-color: #ff6b35; color: #ff6b35; background: #fff3ec; }
+    .tag-chip.active { background: #ff6b35; color: white; border-color: #ff6b35; }
     #joke-date { font-size: 0.8rem; color: #bbb; margin-bottom: 4px; visibility: hidden; }
     #joke-text {
       font-size: 1.35rem; color: #333; line-height: 1.6;
@@ -99,6 +109,13 @@
         <option value="">All categories</option>
       </select>
     </div>
+    <!-- tag filter bar (v13) -->
+    <div class="tag-filter" id="tag-filter-bar" data-testid="tag-filter-bar">
+      <div class="tag-filter-label">🏷️ Filter by tag</div>
+      <div class="tag-chips" id="tag-chips">
+        <span class="tag-chip active" data-tag="" data-testid="tag-chip-all" onclick="selectTag(this, '')">All</span>
+      </div>
+    </div>
     <div id="joke-date"></div>
     <div id="joke-text" class="loading">Loading a joke...</div>
     <div class="meta-row">
@@ -123,6 +140,38 @@
   <script>
     let currentTab = 'today';
     let currentJokeId = null;
+    let activeTag = new URLSearchParams(window.location.search).get('tag') || '';
+
+    async function loadTags() {
+      try {
+        const tags = await (await fetch('/api/tags')).json();
+        const container = document.getElementById('tag-chips');
+        tags.forEach(t => {
+          const chip = document.createElement('span');
+          chip.className = 'tag-chip' + (activeTag === t ? ' active' : '');
+          chip.dataset.tag = t;
+          chip.dataset.testid = 'tag-chip-' + t;
+          chip.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+          chip.onclick = function() { selectTag(this, t); };
+          container.appendChild(chip);
+        });
+        // Deactivate "All" chip if a tag is active
+        if (activeTag) {
+          document.querySelector('[data-tag=""]').classList.remove('active');
+        }
+      } catch(e) {}
+    }
+
+    function selectTag(el, tag) {
+      activeTag = tag;
+      document.querySelectorAll('.tag-chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      // Update ?tag= query param
+      const url = new URL(window.location.href);
+      if (tag) url.searchParams.set('tag', tag); else url.searchParams.delete('tag');
+      history.replaceState(null, '', url.toString());
+      if (currentTab === 'random') fetchRandom();
+    }
 
     async function loadCategories() {
       try {
@@ -174,7 +223,11 @@
       document.getElementById('upvote-btn').style.visibility = 'hidden';
       document.getElementById('joke-date').style.visibility = 'hidden';
       const category = document.getElementById('category-select').value;
-      const url = category ? `/api/joke?category=${encodeURIComponent(category)}` : '/api/joke';
+      const params = new URLSearchParams();
+      if (category) params.set('category', category);
+      if (activeTag) params.set('tag', activeTag);
+      const qs = params.toString();
+      const url = qs ? `/api/joke?${qs}` : '/api/joke';
       showJoke(await (await fetch(url)).json());
     }
 
@@ -222,10 +275,13 @@
 
     async function init() {
       await loadCategories();
+      await loadTags();
       const hash = window.location.hash;
       const match = hash.match(/^#joke-(\d+)$/);
       if (match) {
         await fetchById(parseInt(match[1]));
+        switchTab('random');
+      } else if (activeTag) {
         switchTab('random');
       } else switchTab('today');
     }
