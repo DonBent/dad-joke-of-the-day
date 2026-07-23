@@ -102,8 +102,17 @@ app.post('/api/joke/:id/upvote', (req, res) => {
 });
 
 app.get('/api/joke/today', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
   const today = todayStr();
-  res.json({ ...jokeWithVotes(jokeForDate(today)), date: today });
+  const w = jokeWithVotes(jokeForDate(today));
+  res.json({
+    id: w.id,
+    joke: w.joke,
+    category: w.category,
+    tags: w.tags || [],
+    voteScore: w.votes,
+    date: today
+  });
 });
 
 app.get('/api/joke/day/:date', (req, res) => {
@@ -392,6 +401,239 @@ app.post('/api/admin/send-digest', adminAuth, async (req, res) => {
     }
   }
   res.json({ message: 'Digest sent.', ...results });
+});
+
+// ── Embed widget & snippet generator ────────────────────────────────────────
+
+// /api/embed/today — CORS-open alias with richer payload for external embeds
+app.get('/api/embed/today', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  const { tag } = req.query;
+  const today = todayStr();
+  let joke = jokeForDate(today);
+  if (tag) {
+    const pool = allJokes().filter(j => (j.tags || []).includes(tag));
+    if (pool.length) {
+      let hash = 0;
+      for (let i = 0; i < today.length; i++) hash = (hash * 31 + today.charCodeAt(i)) & 0xffffffff;
+      joke = pool[Math.abs(hash) % pool.length];
+    }
+  }
+  const w = jokeWithVotes(joke);
+  res.json({
+    id: w.id,
+    joke: w.joke,
+    category: w.category,
+    tags: w.tags || [],
+    voteScore: w.votes,
+    date: today
+  });
+});
+// Widget page: minimal iframe-embeddable HTML
+app.get('/widget', (req, res) => {
+  const { tag = '', theme = 'light' } = req.query;
+  const isDark = theme === 'dark';
+
+  const today = todayStr();
+  let joke = jokeForDate(today);
+  if (tag) {
+    const pool = allJokes().filter(j => (j.tags || []).includes(tag));
+    if (pool.length) {
+      let hash = 0;
+      for (let i = 0; i < today.length; i++) hash = (hash * 31 + today.charCodeAt(i)) & 0xffffffff;
+      joke = pool[Math.abs(hash) % pool.length];
+    }
+  }
+  const w = jokeWithVotes(joke);
+
+  const bg      = isDark ? '#1a1a1a' : '#ffffff';
+  const fg      = isDark ? '#e8e8e8' : '#222222';
+  const accent  = isDark ? '#ff8c5a' : '#ff6b35';
+  const border  = isDark ? '#333333' : '#ffe4d6';
+  const subFg   = isDark ? '#888888' : '#aaaaaa';
+
+  const tagParam  = tag   ? `?tag=${encodeURIComponent(tag)}`   : '';
+  const themeParam = `${tagParam ? '&' : '?'}theme=${theme}`;
+  const mainUrl   = `https://dad-joke-of-the-day.example.com${tagParam}`;
+
+  res.header('X-Frame-Options', 'ALLOWALL');
+  res.header('Content-Security-Policy', "frame-ancestors *");
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+
+  const jokeEsc = w.joke
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const catEsc  = (w.category || '').replace(/</g, '&lt;');
+  const tagsHtml = (w.tags || []).map(t =>
+    `<span class="tag">${t.replace(/</g,'&lt;')}</span>`).join(' ');
+
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dad Joke of the Day</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;font-family:'Segoe UI',Tahoma,sans-serif;background:${bg};color:${fg}}
+body{display:flex;flex-direction:column;justify-content:space-between;padding:14px 16px 10px;min-height:100px}
+.joke{font-size:1rem;line-height:1.55;flex:1;word-break:break-word}
+.meta{display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:6px}
+.cat{font-size:.72rem;font-weight:700;text-transform:uppercase;color:${accent};background:${border};border-radius:12px;padding:2px 8px}
+.tag{font-size:.68rem;background:${isDark?'#2a2a2a':'#f0f0f0'};color:${subFg};border-radius:10px;padding:2px 7px}
+.tags{display:flex;gap:4px;flex-wrap:wrap}
+.footer{font-size:.7rem;color:${subFg};text-align:right}
+.footer a{color:${accent};text-decoration:none}
+.score{font-size:.72rem;color:${accent};font-weight:700}
+</style>
+</head>
+<body>
+<div class="joke">${jokeEsc}</div>
+<div class="meta">
+  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+    <span class="cat">${catEsc}</span>
+    <div class="tags">${tagsHtml}</div>
+  </div>
+  <span class="score">👍 ${w.votes}</span>
+</div>
+<div class="footer">😄 <a href="/" target="_blank" rel="noopener">Dad Joke of the Day</a> · ${today}</div>
+</body>
+</html>`);
+});
+
+// Snippet generator page
+app.get('/embed', (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+
+  // Derive tags from pool for the tag dropdown
+  const allTags = [...new Set(allJokes().flatMap(j => j.tags || []))].sort();
+  const tagOptions = allTags.map(t => `<option value="${t.replace(/"/g,'&quot;')}">${t}</option>`).join('');
+
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Embed — Dad Joke of the Day</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:linear-gradient(135deg,#ffecd2,#fcb69f);min-height:100vh;display:flex;justify-content:center;padding:24px 16px}
+.card{background:#fff;border-radius:16px;padding:36px;max-width:640px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.12);align-self:flex-start}
+a.back{color:#ff6b35;text-decoration:none;font-size:.9rem;font-weight:600;display:inline-block;margin-bottom:18px}
+a.back:hover{text-decoration:underline}
+h1{font-size:1.4rem;color:#333;margin-bottom:4px}
+.subtitle{color:#aaa;font-size:.9rem;margin-bottom:28px}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+@media(max-width:480px){.controls{grid-template-columns:1fr}}
+label{font-size:.85rem;font-weight:600;color:#555;display:block;margin-bottom:5px}
+select,input[type=text]{width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:8px 10px;font-size:.9rem;outline:none;background:#fafafa}
+select:focus,input:focus{border-color:#ff6b35}
+.preview-box{border:1.5px solid #ffe4d6;border-radius:12px;overflow:hidden;height:180px;margin-bottom:20px;background:#f8f8f8}
+iframe{width:100%;height:100%;border:none;display:block}
+h3{font-size:.95rem;font-weight:700;color:#444;margin-bottom:10px}
+.snippet-block{background:#1e1e1e;border-radius:10px;padding:16px;margin-bottom:12px;position:relative}
+.snippet-block pre{color:#e8e8e8;font-size:.78rem;line-height:1.55;white-space:pre-wrap;word-break:break-all;font-family:'Courier New',monospace}
+.copy-btn{position:absolute;top:10px;right:10px;background:#ff6b35;color:#fff;border:none;border-radius:8px;padding:4px 12px;font-size:.75rem;font-weight:700;cursor:pointer;transition:background .15s}
+.copy-btn:hover{background:#e55a24}
+.copy-btn.copied{background:#2a9d6f}
+.snippet-label{font-size:.75rem;color:#ff8c5a;font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px}
+.footer{margin-top:24px;font-size:.78rem;color:#bbb;text-align:center}
+</style>
+</head>
+<body>
+<div class="card">
+  <a class="back" href="/">← Back to home</a>
+  <div style="font-size:2rem;text-align:center;margin-bottom:8px">📦</div>
+  <h1 style="text-align:center">Embed a Dad Joke</h1>
+  <p class="subtitle" style="text-align:center">Drop today's joke on your site with a copy-paste snippet</p>
+
+  <div class="controls">
+    <div>
+      <label for="themeSelect">Theme</label>
+      <select id="themeSelect">
+        <option value="light">☀️ Light</option>
+        <option value="dark">🌙 Dark</option>
+      </select>
+    </div>
+    <div>
+      <label for="tagSelect">Filter by tag</label>
+      <select id="tagSelect">
+        <option value="">All tags</option>
+        ${tagOptions}
+      </select>
+    </div>
+  </div>
+
+  <div class="preview-box">
+    <iframe id="preview" src="/widget" title="Dad Joke Widget Preview" loading="lazy"></iframe>
+  </div>
+
+  <h3>Copy snippet</h3>
+
+  <div class="snippet-block">
+    <div class="snippet-label">iframe</div>
+    <pre id="iframeSnippet"></pre>
+    <button class="copy-btn" onclick="copySnippet('iframeSnippet',this)">Copy</button>
+  </div>
+
+  <div class="snippet-block">
+    <div class="snippet-label">JavaScript (async)</div>
+    <pre id="jsSnippet"></pre>
+    <button class="copy-btn" onclick="copySnippet('jsSnippet',this)">Copy</button>
+  </div>
+
+  <div class="footer">Powered by <strong>Dad Joke of the Day</strong> · widget refreshes daily</div>
+</div>
+
+<script>
+  const BASE = window.location.origin;
+
+  function buildWidgetUrl() {
+    const theme = document.getElementById('themeSelect').value;
+    const tag   = document.getElementById('tagSelect').value;
+    let url = BASE + '/widget?theme=' + encodeURIComponent(theme);
+    if (tag) url += '&tag=' + encodeURIComponent(tag);
+    return url;
+  }
+
+  function buildApiUrl() {
+    const tag = document.getElementById('tagSelect').value;
+    let url = BASE + '/api/embed/today';
+    if (tag) url += '?tag=' + encodeURIComponent(tag);
+    return url;
+  }
+
+  function updateSnippets() {
+    const widgetUrl = buildWidgetUrl();
+    const apiUrl   = buildApiUrl();
+
+    document.getElementById('preview').src = widgetUrl;
+
+    document.getElementById('iframeSnippet').textContent =
+      '<iframe\n  src="' + widgetUrl + '"\n  width="400" height="180"\n  style="border:none;border-radius:12px"\n  title="Dad Joke of the Day"\n  loading="lazy"\n></iframe>';
+
+    document.getElementById('jsSnippet').textContent =
+      '<!-- place this where you want the joke to appear -->\n<div id="djotd"></div>\n<script>\nfetch("' + apiUrl + '")\n  .then(r => r.json())\n  .then(d => {\n    document.getElementById("djotd").innerHTML =\n      \'<p>\' + d.joke + \'</p>\';\n  });\n<\/script>';
+  }
+
+  async function copySnippet(preId, btn) {
+    const text = document.getElementById(preId).textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+    } catch {
+      btn.textContent = 'Error';
+    }
+  }
+
+  document.getElementById('themeSelect').addEventListener('change', updateSnippets);
+  document.getElementById('tagSelect').addEventListener('change', updateSnippets);
+  updateSnippets();
+<\/script>
+</body>
+</html>`);
 });
 
 if (require.main === module) {
