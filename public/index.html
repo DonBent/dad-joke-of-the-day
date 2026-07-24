@@ -136,7 +136,7 @@
       } catch(e) {}
     }
 
-    function showJoke(data) {
+    function showJoke(data, isToday) {
       document.getElementById('joke-text').className = '';
       document.getElementById('joke-text').textContent = data.joke;
       document.getElementById('joke-badge').textContent = data.category;
@@ -149,6 +149,14 @@
       const dateEl = document.getElementById('joke-date');
       if (data.date) { dateEl.textContent = data.date; dateEl.style.visibility = 'visible'; }
       else dateEl.style.visibility = 'hidden';
+      // Challenge Mode: only for today's joke
+      if (isToday && typeof window.initChallenge === 'function') {
+        window.initChallenge(data);
+      } else {
+        // Remove challenge section when viewing non-today jokes
+        var cs = document.getElementById('challenge-section');
+        if (cs) cs.remove();
+      }
     }
 
     async function upvote() {
@@ -164,7 +172,7 @@
       document.getElementById('joke-text').textContent = "Loading today's joke...";
       document.getElementById('joke-badge').style.visibility = 'hidden';
       document.getElementById('upvote-btn').style.visibility = 'hidden';
-      showJoke(await (await fetch('/api/joke/today')).json());
+      showJoke(await (await fetch('/api/joke/today')).json(), true);
     }
 
     async function fetchRandom() {
@@ -447,6 +455,8 @@
 
 <!-- streak badge + share injected by v10 -->
 <script src="/streak.js"></script>
+<!-- challenge mode injected by v16 -->
+<script src="/challenge.js"></script>
 <script>
 (function () {
   var LS_LAST  = 'djotd_lastVisit';
