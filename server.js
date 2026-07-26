@@ -8,6 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'dev-admin-token';
 const VOTES_FILE = process.env.VOTES_FILE || path.join(__dirname, 'votes.json');
+const REACTIONS_FILE = process.env.REACTIONS_FILE || path.join(__dirname, 'reactions.json');
 const CUSTOM_JOKES_FILE = path.join(__dirname, 'custom-jokes.json');
 const SUBMISSIONS_FILE = path.join(__dirname, 'submissions.json');
 const SUBSCRIBERS_FILE = process.env.SUBSCRIBERS_FILE || path.join(__dirname, 'subscribers.json');
@@ -25,6 +26,17 @@ function writeJson(file, data) {
 
 let votes = readJson(VOTES_FILE, {});
 function saveVotes() { writeJson(VOTES_FILE, votes); }
+
+// reactions[jokeId] = { laugh: N, groan: N, drums: N, melt: N }
+// reactorIndex[jokeId][ip] = reactionKey
+let reactions = readJson(REACTIONS_FILE, {});
+let reactorIndex = {}; // rebuilt from reactions.json on startup – separate file not needed; we maintain in-memory only
+const VALID_REACTIONS = ['laugh', 'groan', 'drums', 'melt'];
+function saveReactions() { writeJson(REACTIONS_FILE, reactions); }
+
+function jokeReactions(jokeId) {
+  return reactions[jokeId] || { laugh: 0, groan: 0, drums: 0, melt: 0 };
+}
 
 function allJokes() {
   const custom = readJson(CUSTOM_JOKES_FILE, []);
@@ -47,7 +59,7 @@ function adminAuth(req, res, next) {
 
 // ── Joke helpers ─────────────────────────────────────────────────────────────
 function jokeWithVotes(joke) {
-  return { ...joke, votes: votes[joke.id] || 0 };
+  return { ...joke, votes: votes[joke.id] || 0, reactions: jokeReactions(joke.id) };
 }
 
 function weightedRandom(pool) {
@@ -91,6 +103,35 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/api/categories', (req, res) => {
   const categories = [...new Set(allJokes().map(j => j.category))].sort();
   res.json(categories);
+});
+
+// ── Reactions ────────────────────────────────────────────────────────────────
+app.post('/api/jokes/:id/react', (req, res) => {
+  const id = String(parseInt(req.params.id));
+  if (!allJokes().find(j => j.id === parseInt(id))) return res.status(404).json({ error: 'Joke not found' });
+  const { reaction } = req.body || {};
+  if (!VALID_REACTIONS.includes(reaction)) {
+    return res.status(400).json({ error: `reaction must be one of: ${VALID_REACTIONS.join(', ')}` });
+  }
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  if (!reactorIndex[id]) reactorIndex[id] = {};
+  if (!reactions[id]) reactions[id] = { laugh: 0, groan: 0, drums: 0, melt: 0 };
+  const prev = reactorIndex[id][ip];
+  if (prev === reaction) {
+    // Toggle off — remove reaction
+    reactions[id][prev] = Math.max(0, (reactions[id][prev] || 0) - 1);
+    delete reactorIndex[id][ip];
+    saveReactions();
+    return res.json({ id: parseInt(id), reactions: reactions[id], userReaction: null });
+  }
+  if (prev) {
+    // Change reaction: remove old
+    reactions[id][prev] = Math.max(0, (reactions[id][prev] || 0) - 1);
+  }
+  reactions[id][reaction] = (reactions[id][reaction] || 0) + 1;
+  reactorIndex[id][ip] = reaction;
+  saveReactions();
+  res.json({ id: parseInt(id), reactions: reactions[id], userReaction: reaction });
 });
 
 app.post('/api/joke/:id/upvote', (req, res) => {

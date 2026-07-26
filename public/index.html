@@ -83,6 +83,28 @@
     .archive-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
     .archive-cat { font-size: 0.7rem; color: #ff6b35; font-weight: 600; text-transform: uppercase; }
     .archive-votes { font-size: 0.75rem; color: #bbb; }
+    /* reaction bar */
+    .reaction-bar {
+      display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+      margin-bottom: 20px; visibility: hidden;
+    }
+    .reaction-btn {
+      background: #f9f9f9; border: 2px solid #eee; border-radius: 20px;
+      padding: 5px 14px; font-size: 0.95rem; color: #555;
+      cursor: pointer; transition: all 0.2s; display: flex;
+      align-items: center; gap: 5px; font-family: inherit;
+    }
+    .reaction-btn:hover { border-color: #ff6b35; background: #fff3ec; }
+    .reaction-btn.active { border-color: #ff6b35; background: #fff3ec; color: #ff6b35; font-weight: 700; }
+    .reaction-count { font-size: 0.8rem; min-width: 14px; text-align: left; }
+    @media (prefers-color-scheme: dark) {
+      .reaction-btn { background: #1e1e1e; border-color: #333; color: #ccc; }
+      .reaction-btn:hover { border-color: #ff6b35; background: rgba(255,107,53,0.1); }
+      .reaction-btn.active { border-color: #ff6b35; background: rgba(255,107,53,0.15); color: #ff6b35; }
+    }
+    @media (max-width: 480px) {
+      .reaction-btn { padding: 5px 10px; font-size: 0.88rem; }
+    }
   </style>
 </head>
 <body>
@@ -104,6 +126,12 @@
     <div class="meta-row">
       <div id="joke-badge" class="badge">—</div>
       <button class="upvote-btn" id="upvote-btn" onclick="upvote()">👍 <span id="vote-count">0</span></button>
+    </div>
+    <div class="reaction-bar" id="reaction-bar" role="group" aria-label="Joke reactions">
+      <button class="reaction-btn" id="reaction-btn-laugh" data-testid="reaction-btn-laugh" data-reaction="laugh" aria-label="Laugh reaction" aria-pressed="false" onclick="reactToJoke('laugh')">😂 <span class="reaction-count" id="reaction-count-laugh">0</span></button>
+      <button class="reaction-btn" id="reaction-btn-groan" data-testid="reaction-btn-groan" data-reaction="groan" aria-label="Groan reaction" aria-pressed="false" onclick="reactToJoke('groan')">😬 <span class="reaction-count" id="reaction-count-groan">0</span></button>
+      <button class="reaction-btn" id="reaction-btn-drums" data-testid="reaction-btn-drums" data-reaction="drums" aria-label="Rimshot reaction" aria-pressed="false" onclick="reactToJoke('drums')">🥁 <span class="reaction-count" id="reaction-count-drums">0</span></button>
+      <button class="reaction-btn" id="reaction-btn-melt" data-testid="reaction-btn-melt" data-reaction="melt" aria-label="Face melting reaction" aria-pressed="false" onclick="reactToJoke('melt')">🫠 <span class="reaction-count" id="reaction-count-melt">0</span></button>
     </div>
     <!-- streak badge injected by v10 -->
     <div id="streak-badge" data-testid="streak-badge" style="display:none;margin-bottom:16px;">
@@ -145,6 +173,22 @@
       document.getElementById('upvote-btn').classList.remove('voted');
       document.getElementById('vote-count').textContent = data.votes || 0;
       currentJokeId = data.id;
+      // Render reactions
+      const bar = document.getElementById('reaction-bar');
+      bar.style.visibility = 'visible';
+      const rxns = data.reactions || { laugh: 0, groan: 0, drums: 0, melt: 0 };
+      ['laugh','groan','drums','melt'].forEach(r => {
+        document.getElementById('reaction-count-' + r).textContent = rxns[r] || 0;
+        const btn = document.getElementById('reaction-btn-' + r);
+        btn.classList.remove('active');
+        btn.setAttribute('aria-pressed', 'false');
+      });
+      // Restore local selection if any
+      const stored = localStorage.getItem('djotd_reaction_' + data.id);
+      if (stored) {
+        const btn = document.getElementById('reaction-btn-' + stored);
+        if (btn) { btn.classList.add('active'); btn.setAttribute('aria-pressed', 'true'); }
+      }
       history.replaceState(null, '', `#joke-${data.id}`);
       const dateEl = document.getElementById('joke-date');
       if (data.date) { dateEl.textContent = data.date; dateEl.style.visibility = 'visible'; }
@@ -157,6 +201,32 @@
         var cs = document.getElementById('challenge-section');
         if (cs) cs.remove();
       }
+    }
+
+    async function reactToJoke(reaction) {
+      if (!currentJokeId) return;
+      try {
+        const res = await fetch(`/api/jokes/${currentJokeId}/react`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reaction })
+        });
+        const data = await res.json();
+        if (!res.ok) return;
+        const rxns = data.reactions || {};
+        ['laugh','groan','drums','melt'].forEach(r => {
+          document.getElementById('reaction-count-' + r).textContent = rxns[r] || 0;
+          const btn = document.getElementById('reaction-btn-' + r);
+          const active = data.userReaction === r;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        if (data.userReaction) {
+          localStorage.setItem('djotd_reaction_' + currentJokeId, data.userReaction);
+        } else {
+          localStorage.removeItem('djotd_reaction_' + currentJokeId);
+        }
+      } catch(e) {}
     }
 
     async function upvote() {
@@ -172,6 +242,7 @@
       document.getElementById('joke-text').textContent = "Loading today's joke...";
       document.getElementById('joke-badge').style.visibility = 'hidden';
       document.getElementById('upvote-btn').style.visibility = 'hidden';
+      document.getElementById('reaction-bar').style.visibility = 'hidden';
       showJoke(await (await fetch('/api/joke/today')).json(), true);
     }
 
@@ -180,6 +251,7 @@
       el.className = 'loading'; el.textContent = 'Loading a joke...';
       document.getElementById('joke-badge').style.visibility = 'hidden';
       document.getElementById('upvote-btn').style.visibility = 'hidden';
+      document.getElementById('reaction-bar').style.visibility = 'hidden';
       document.getElementById('joke-date').style.visibility = 'hidden';
       const category = document.getElementById('category-select').value;
       const url = category ? `/api/joke?category=${encodeURIComponent(category)}` : '/api/joke';
