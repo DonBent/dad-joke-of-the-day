@@ -25,6 +25,8 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 ## Proposed (in flight)
 
+- v18 — "Random Joke" button: on-demand weighted-random joke fetch so users can keep rolling for more laughs beyond today's daily pick; reuses the existing weighted pool with vote+reaction weighting via a new /api/jokes/random endpoint; pure progressive enhancement — the daily joke remains the hero [CID-20260728-B9118062]
+
 
 ## Rejected / Not pursuing
 
