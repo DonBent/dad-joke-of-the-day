@@ -21,10 +21,10 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 - v14 — Contributor dashboard "My Jokes": submitters can see status + vote counts for their submissions
 - v15 — Embeddable widget + snippet generator: iframe/JS embed code so other sites can show the daily joke
 - v16 — Guess the Punchline challenge mode: daily interactive challenge hiding the punchline [CID-20260724-0763B543]
+- v17 — Emoji reaction bar per joke: expressive emoji reactions (😂 😬 🥁 🫠) stored server-side with live counts; one reaction per IP, toggle to remove [CID-20260725-A9F3D201]
 
 ## Proposed (in flight)
 
-- v17 — Emoji reaction bar per joke: replace/augment single upvote with expressive emoji reactions (😂 😬 🥁 🫠) stored server-side and displayed as live counts; enriches voting with richer social signal without requiring auth [CID-20260725-A9F3D201]
 
 ## Rejected / Not pursuing
 
