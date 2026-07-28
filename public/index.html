@@ -105,6 +105,63 @@
     @media (max-width: 480px) {
       .reaction-btn { padding: 5px 10px; font-size: 0.88rem; }
     }
+    /* Random joke section */
+    .random-joke-section { margin-top: 28px; border-top: 2px solid #f5f5f5; padding-top: 24px; }
+    #random-joke-btn {
+      background: #fff3ec; color: #ff6b35; border: 2px solid #ffd5bf;
+      border-radius: 10px; padding: 12px 28px; font-size: 0.95rem;
+      cursor: pointer; transition: all 0.2s; font-family: inherit; font-weight: 600;
+    }
+    #random-joke-btn:hover { background: #ff6b35; color: white; border-color: #ff6b35; }
+    #random-joke-btn:active { transform: scale(0.97); }
+    #random-joke-card {
+      display: none; margin-top: 20px; background: #fafafa;
+      border-radius: 14px; padding: 24px; border: 2px solid #ffecd2;
+      text-align: center;
+    }
+    #random-joke-card.visible { display: block; }
+    #random-joke-card.swap-out { opacity: 0; transform: translateY(-8px); transition: opacity 0.15s ease, transform 0.15s ease; }
+    #random-joke-card.swap-in  { opacity: 1; transform: translateY(0);  transition: opacity 0.15s ease, transform 0.15s ease; }
+    #random-joke-label {
+      display: inline-block; background: #ff6b35; color: white;
+      border-radius: 20px; padding: 3px 12px; font-size: 0.78rem;
+      font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    #random-joke-text {
+      font-size: 1.2rem; color: #333; line-height: 1.6;
+      margin-bottom: 12px;
+    }
+    #random-joke-text.loading { color: #aaa; font-style: italic; font-size: 1rem; }
+    .random-meta-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px; margin-bottom: 14px; flex-wrap: wrap;
+    }
+    .random-cat-badge {
+      background: #fff3ec; color: #ff6b35; border: 1px solid #ffd5bf;
+      border-radius: 20px; padding: 3px 12px; font-size: 0.78rem; font-weight: 600;
+      text-transform: uppercase;
+    }
+    #random-upvote-btn {
+      background: #f9f9f9; border: 2px solid #eee; border-radius: 20px;
+      padding: 4px 14px; font-size: 0.85rem; color: #888;
+      cursor: pointer; transition: all 0.2s; font-family: inherit;
+    }
+    #random-upvote-btn:hover { border-color: #ff6b35; color: #ff6b35; background: #fff3ec; }
+    #random-upvote-btn.voted { background: #fff3ec; color: #ff6b35; border-color: #ff6b35; }
+    .random-reaction-bar {
+      display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+    }
+    @media (prefers-color-scheme: dark) {
+      #random-joke-card { background: #1a1a1a; border-color: #7a3b1e; }
+      #random-joke-text { color: #e0e0e0; }
+      #random-upvote-btn { background: #1e1e1e; border-color: #333; color: #aaa; }
+      #random-upvote-btn:hover { border-color: #ff6b35; color: #ff6b35; background: rgba(255,107,53,0.1); }
+    }
+    @media (max-width: 480px) {
+      #random-joke-btn { width: 100%; }
+      #random-joke-card { padding: 16px; }
+    }
   </style>
 </head>
 <body>
@@ -141,6 +198,24 @@
     <div class="actions">
       <button class="primary" id="action-btn" onclick="onAction()">Another one! 👴</button>
       <button id="share-btn" onclick="shareJoke()">🔗 Share</button>
+    </div>
+    <!-- Random joke section (v18) -->
+    <div class="random-joke-section">
+      <button id="random-joke-btn" data-testid="random-joke-btn" onclick="fetchRandomJoke()">🎲 Random Joke</button>
+      <div id="random-joke-card" data-testid="random-joke-card">
+        <span id="random-joke-label" data-testid="random-joke-label">🎲 Random</span>
+        <div id="random-joke-text"></div>
+        <div class="random-meta-row">
+          <span class="random-cat-badge" id="random-cat-badge"></span>
+          <button id="random-upvote-btn" onclick="upvoteRandom()">👍 <span id="random-vote-count">0</span></button>
+        </div>
+        <div class="random-reaction-bar" id="random-reaction-bar" role="group" aria-label="Random joke reactions">
+          <button class="reaction-btn" id="random-reaction-btn-laugh" data-reaction="laugh" aria-label="Laugh" aria-pressed="false" onclick="reactToRandom('laugh')">😂 <span class="reaction-count" id="random-reaction-count-laugh">0</span></button>
+          <button class="reaction-btn" id="random-reaction-btn-groan" data-reaction="groan" aria-label="Groan" aria-pressed="false" onclick="reactToRandom('groan')">😬 <span class="reaction-count" id="random-reaction-count-groan">0</span></button>
+          <button class="reaction-btn" id="random-reaction-btn-drums" data-reaction="drums" aria-label="Rimshot" aria-pressed="false" onclick="reactToRandom('drums')">🥁 <span class="reaction-count" id="random-reaction-count-drums">0</span></button>
+          <button class="reaction-btn" id="random-reaction-btn-melt" data-reaction="melt" aria-label="Face melting" aria-pressed="false" onclick="reactToRandom('melt')">🫠 <span class="reaction-count" id="random-reaction-count-melt">0</span></button>
+        </div>
+      </div>
     </div>
     <div class="archive" id="archive-section">
       <h2>📖 Last 7 Days</h2>
@@ -299,6 +374,101 @@
     }
 
     function onAction() { if (currentTab === 'today') fetchToday(); else fetchRandom(); }
+
+    // ── Random Joke (v18) ────────────────────────────────────────────────────
+    let currentRandomJokeId = null;
+
+    async function fetchRandomJoke() {
+      const card = document.getElementById('random-joke-card');
+      const textEl = document.getElementById('random-joke-text');
+
+      // If card is visible, animate out first
+      if (card.classList.contains('visible')) {
+        card.classList.add('swap-out');
+        await new Promise(r => setTimeout(r, 150));
+        card.classList.remove('swap-out');
+      }
+
+      textEl.className = 'loading';
+      textEl.textContent = 'Finding a joke...';
+      document.getElementById('random-cat-badge').textContent = '';
+      document.getElementById('random-upvote-btn').classList.remove('voted');
+      document.getElementById('random-vote-count').textContent = '0';
+      ['laugh','groan','drums','melt'].forEach(r => {
+        document.getElementById('random-reaction-count-' + r).textContent = '0';
+        const btn = document.getElementById('random-reaction-btn-' + r);
+        btn.classList.remove('active');
+        btn.setAttribute('aria-pressed','false');
+      });
+
+      card.classList.add('visible');
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(-8px)';
+
+      try {
+        const data = await (await fetch('/api/jokes/random', { cache: 'no-store' })).json();
+        currentRandomJokeId = data.id;
+        textEl.className = '';
+        textEl.textContent = data.joke;
+        document.getElementById('random-cat-badge').textContent = data.category;
+        document.getElementById('random-vote-count').textContent = data.votes || 0;
+        const rxns = data.reactions || { laugh: 0, groan: 0, drums: 0, melt: 0 };
+        ['laugh','groan','drums','melt'].forEach(r => {
+          document.getElementById('random-reaction-count-' + r).textContent = rxns[r] || 0;
+        });
+        // Restore local reaction
+        const stored = localStorage.getItem('djotd_reaction_' + data.id);
+        if (stored) {
+          const btn = document.getElementById('random-reaction-btn-' + stored);
+          if (btn) { btn.classList.add('active'); btn.setAttribute('aria-pressed','true'); }
+        }
+      } catch (e) {
+        textEl.className = 'loading';
+        textEl.textContent = 'Failed to load joke — try again!';
+        currentRandomJokeId = null;
+      }
+
+      // Animate in
+      requestAnimationFrame(() => {
+        card.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+      });
+    }
+
+    async function upvoteRandom() {
+      if (!currentRandomJokeId) return;
+      const res = await fetch(`/api/joke/${currentRandomJokeId}/upvote`, { method: 'POST' });
+      const data = await res.json();
+      document.getElementById('random-vote-count').textContent = data.votes;
+      document.getElementById('random-upvote-btn').classList.add('voted');
+    }
+
+    async function reactToRandom(reaction) {
+      if (!currentRandomJokeId) return;
+      try {
+        const res = await fetch(`/api/jokes/${currentRandomJokeId}/react`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reaction })
+        });
+        const data = await res.json();
+        if (!res.ok) return;
+        const rxns = data.reactions || {};
+        ['laugh','groan','drums','melt'].forEach(r => {
+          document.getElementById('random-reaction-count-' + r).textContent = rxns[r] || 0;
+          const btn = document.getElementById('random-reaction-btn-' + r);
+          const active = data.userReaction === r;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        if (data.userReaction) {
+          localStorage.setItem('djotd_reaction_' + currentRandomJokeId, data.userReaction);
+        } else {
+          localStorage.removeItem('djotd_reaction_' + currentRandomJokeId);
+        }
+      } catch(e) {}
+    }
 
     async function init() {
       await loadCategories();

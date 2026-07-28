@@ -272,6 +272,36 @@ app.get('/api/jokes/top', (req, res) => {
   res.json(top);
 });
 
+// Random joke (weighted, never today's daily)
+app.get('/api/jokes/random', (req, res) => {
+  const today = todayStr();
+  const dailyJoke = jokeForDate(today);
+  const pool = allJokes();
+  if (pool.length <= 1) {
+    // Only one joke exists — return it anyway
+    return res.json(jokeWithVotes(pool[0]));
+  }
+  // Build pool excluding today's daily joke
+  const eligible = pool.filter(j => j.id !== dailyJoke.id);
+  // Weighted random including reaction totals in weight
+  function weightedRandomWithReactions(candidates) {
+    const weights = candidates.map(j => {
+      const rxns = reactions[j.id] || {};
+      const reactionTotal = Object.values(rxns).reduce((s, v) => s + v, 0);
+      return 1 + (votes[j.id] || 0) + reactionTotal;
+    });
+    const total = weights.reduce((a, b) => a + b, 0);
+    let rand = Math.random() * total;
+    for (let i = 0; i < candidates.length; i++) {
+      rand -= weights[i];
+      if (rand <= 0) return candidates[i];
+    }
+    return candidates[candidates.length - 1];
+  }
+  const chosen = weightedRandomWithReactions(eligible);
+  res.json(jokeWithVotes(chosen));
+});
+
 // Stats
 app.get('/api/stats', (req, res) => {
   const jokes = allJokes();
