@@ -22,10 +22,10 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 - v15 — Embeddable widget + snippet generator: iframe/JS embed code so other sites can show the daily joke
 - v16 — Guess the Punchline challenge mode: daily interactive challenge hiding the punchline [CID-20260724-0763B543]
 - v17 — Emoji reaction bar per joke: expressive emoji reactions (😂 😬 🥁 🫠) stored server-side with live counts; one reaction per IP, toggle to remove [CID-20260725-A9F3D201]
+- v18 — "Random Joke" button: on-demand weighted-random joke fetch via GET /api/jokes/random with vote+reaction weighting; excludes today's daily pick; 🎲 Random badge; fade/slide swap animation [CID-20260728-B9118062]
 
 ## Proposed (in flight)
 
-- v18 — "Random Joke" button: on-demand weighted-random joke fetch so users can keep rolling for more laughs beyond today's daily pick; reuses the existing weighted pool with vote+reaction weighting via a new /api/jokes/random endpoint; pure progressive enhancement — the daily joke remains the hero [CID-20260728-B9118062]
 
 
 ## Rejected / Not pursuing

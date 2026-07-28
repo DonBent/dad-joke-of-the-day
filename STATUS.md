@@ -11,10 +11,10 @@
 
 **Active:** YES
 **IdeationExhausted:** NO
-**Current Cycle Correlation ID:** CID-20260728-B9118062
-**Stage:** DEVELOPMENT
-**Last Release Version:** v17
-**Last Release At:** 2026-07-27
+**Current Cycle Correlation ID:** —
+**Stage:** IDLE
+**Last Release Version:** v18
+**Last Release At:** 2026-07-28
 
 ---
 
