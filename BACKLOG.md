@@ -26,10 +26,11 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 - v19 — Per-joke comment thread ("Roast the Joke"): lightweight visitor comment section on each joke page; no auth, IP-rate-limited, admin-moderated; turns the daily joke into a shared groaning ritual and drives return visits [CID-20260801-5B5AA475]
 - v20 — Daily browser push notification opt-in: one-click Service Worker/Web Push (VAPID) subscription delivering the joke of the day at 08:00; zero-friction daily re-engagement with no email required [CID-20260802-C79DD50D]
 - v21 — Joke Duel: daily head-to-head joke voting; two date-seeded jokes pitted against each other, one IP vote per day, live results revealed after voting with 🏆 winner highlight [CID-20260802-B3194F39]
+- v22 — "On This Day" joke archive: date-picker browse of any past date's joke with vote counts, reactions, and shareable ?date= links [CID-20260802-11B7A540]
+- v23 — Bulk joke import: fetch-jokes.js script + admin batch-review UI (admin-import.html) + dedup logic; pool expanded from 15 → 776 jokes via icanhazdadjoke + JokeAPI safe filters [CEO-REQUEST-20260802]
 
 ## Proposed (in flight)
 
-- v22 — "On This Day" joke archive: date-picker browse of any past date's deterministic joke, with vote counts and reactions; shareable ?date= links; adds exploration/nostalgia layer on top of existing content with near-zero cost [CID-20260802-11B7A540]
 
 
 
