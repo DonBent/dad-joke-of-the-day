@@ -162,6 +162,40 @@
       #random-joke-btn { width: 100%; }
       #random-joke-card { padding: 16px; }
     }
+    /* Roast the Joke panel (v19) */
+    .roast-panel { margin-top: 20px; border-top: 2px solid #f5f5f5; padding-top: 18px; }
+    .roast-toggle {
+      background: none; border: 2px dashed #ffd5bf; border-radius: 10px;
+      color: #ff6b35; width: 100%; padding: 10px 16px; font-size: 0.93rem;
+      font-family: inherit; cursor: pointer; transition: all 0.2s; font-weight: 600;
+    }
+    .roast-toggle:hover { background: #fff8f3; border-style: solid; }
+    .roast-body { margin-top: 14px; text-align: left; }
+    .roast-comment {
+      background: #fafafa; border-radius: 8px; padding: 10px 14px;
+      margin-bottom: 8px; border-left: 3px solid #ffd5bf; font-size: 0.9rem; color: #444;
+    }
+    .roast-comment-time { font-size: 0.72rem; color: #bbb; margin-top: 3px; }
+    .roast-empty { font-size: 0.88rem; color: #bbb; text-align: center; padding: 10px 0 4px; }
+    .roast-form { margin-top: 12px; }
+    .roast-form textarea {
+      width: 100%; border: 2px solid #eee; border-radius: 8px;
+      padding: 10px 12px; font-size: 0.9rem; color: #444; font-family: inherit;
+      resize: vertical; min-height: 64px; outline: none;
+    }
+    .roast-form textarea:focus { border-color: #ff6b35; }
+    .roast-form-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+    .roast-char-counter { font-size: 0.78rem; color: #bbb; }
+    .roast-char-counter.near { color: #ff6b35; }
+    .roast-submit-btn {
+      background: #ff6b35; color: white; border: none;
+      border-radius: 8px; padding: 8px 18px; font-size: 0.88rem;
+      cursor: pointer; font-family: inherit;
+    }
+    .roast-submit-btn:hover { background: #e55a26; }
+    .roast-msg { margin-top: 6px; font-size: 0.83rem; min-height: 18px; }
+    .roast-msg.ok { color: #2a9d6f; }
+    .roast-msg.err { color: #c00; }
   </style>
 </head>
 <body>
@@ -217,6 +251,23 @@
         </div>
       </div>
     </div>
+    <!-- Roast the Joke panel (v19) -->
+    <div id="roast-panel" class="roast-panel" style="display:none">
+      <button class="roast-toggle" id="roast-toggle" data-testid="roast-toggle" onclick="toggleRoast()" aria-expanded="false">
+        💬 Roast the Joke <span id="roast-count-badge" data-testid="roast-count-badge"></span>
+      </button>
+      <div class="roast-body" id="roast-body" style="display:none">
+        <div id="roast-list" data-testid="roast-list"></div>
+        <form class="roast-form" id="roast-form" onsubmit="submitRoast(event)">
+          <textarea id="roast-input" data-testid="roast-input" maxlength="280" placeholder="Your roast here…" rows="3"></textarea>
+          <div class="roast-form-footer">
+            <span class="roast-char-counter" id="roast-char-counter" data-testid="roast-char-counter">0 / 280</span>
+            <button type="submit" class="roast-submit-btn" data-testid="roast-submit-btn">Roast it 🔥</button>
+          </div>
+          <div id="roast-msg" data-testid="roast-msg" class="roast-msg"></div>
+        </form>
+      </div>
+    </div>
     <div class="archive" id="archive-section">
       <h2>📖 Last 7 Days</h2>
       <div id="archive-list"></div>
@@ -265,6 +316,8 @@
         if (btn) { btn.classList.add('active'); btn.setAttribute('aria-pressed', 'true'); }
       }
       history.replaceState(null, '', `#joke-${data.id}`);
+      // v19: show roast panel for this joke
+      if (typeof window.showRoastPanel === 'function') window.showRoastPanel(data.id);
       const dateEl = document.getElementById('joke-date');
       if (data.date) { dateEl.textContent = data.date; dateEl.style.visibility = 'visible'; }
       else dateEl.style.visibility = 'hidden';
@@ -422,6 +475,8 @@
           const btn = document.getElementById('random-reaction-btn-' + stored);
           if (btn) { btn.classList.add('active'); btn.setAttribute('aria-pressed','true'); }
         }
+        // v19: update roast panel for this random joke
+        if (typeof window.showRoastPanel === 'function') window.showRoastPanel(data.id);
       } catch (e) {
         textEl.className = 'loading';
         textEl.textContent = 'Failed to load joke — try again!';
@@ -482,8 +537,120 @@
 
     init();
   </script>
-</body>
-</html>
+
+  <!-- Roast the Joke JS (v19) -->
+  <script>
+  (function() {
+    let roastJokeId = null;
+    let roastOpen = false;
+
+    function timeAgo(iso) {
+      const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+      if (s < 60) return 'just now';
+      const m = Math.floor(s / 60);
+      if (m < 60) return m + 'm ago';
+      const h = Math.floor(m / 60);
+      if (h < 24) return h + 'h ago';
+      return Math.floor(h / 24) + 'd ago';
+    }
+
+    async function loadRoasts(jokeId) {
+      const list = document.getElementById('roast-list');
+      try {
+        const res = await fetch(`/api/jokes/${jokeId}/comments`);
+        const comments = await res.json();
+        const badge = document.getElementById('roast-count-badge');
+        badge.textContent = comments.length > 0 ? `(${comments.length})` : '';
+        if (!comments.length) {
+          list.innerHTML = '<div class="roast-empty">Be the first to roast this one.</div>';
+          return;
+        }
+        list.innerHTML = comments.map(c => `
+          <div class="roast-comment">
+            <div>${escapeHtml(c.text)}</div>
+            <div class="roast-comment-time">${timeAgo(c.createdAt)}</div>
+          </div>`).join('');
+      } catch(e) {
+        list.innerHTML = '<div class="roast-empty">Failed to load comments.</div>';
+      }
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    window.toggleRoast = function() {
+      roastOpen = !roastOpen;
+      const body = document.getElementById('roast-body');
+      const btn = document.getElementById('roast-toggle');
+      body.style.display = roastOpen ? 'block' : 'none';
+      btn.setAttribute('aria-expanded', roastOpen ? 'true' : 'false');
+      if (roastOpen && roastJokeId) loadRoasts(roastJokeId);
+    };
+
+    window.showRoastPanel = function(jokeId) {
+      roastJokeId = jokeId;
+      roastOpen = false;
+      const panel = document.getElementById('roast-panel');
+      const body = document.getElementById('roast-body');
+      const btn = document.getElementById('roast-toggle');
+      const input = document.getElementById('roast-input');
+      const msg = document.getElementById('roast-msg');
+      const badge = document.getElementById('roast-count-badge');
+      panel.style.display = 'block';
+      body.style.display = 'none';
+      btn.setAttribute('aria-expanded', 'false');
+      input.value = '';
+      msg.textContent = ''; msg.className = 'roast-msg';
+      document.getElementById('roast-char-counter').textContent = '0 / 280';
+      // Preload count for badge even when collapsed
+      fetch(`/api/jokes/${jokeId}/comments`).then(r => r.json()).then(comments => {
+        badge.textContent = comments.length > 0 ? `(${comments.length})` : '';
+      }).catch(() => {});
+    };
+
+    window.submitRoast = async function(e) {
+      e.preventDefault();
+      const input = document.getElementById('roast-input');
+      const msg = document.getElementById('roast-msg');
+      const text = input.value.trim();
+      msg.className = 'roast-msg'; msg.textContent = '';
+      if (!text) { msg.className = 'roast-msg err'; msg.textContent = 'Write something first!'; return; }
+      try {
+        const res = await fetch(`/api/jokes/${roastJokeId}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          msg.className = 'roast-msg ok';
+          msg.textContent = "\ud83d\udd25 Your roast is in the queue!";
+          input.value = '';
+          document.getElementById('roast-char-counter').textContent = '0 / 280';
+        } else {
+          msg.className = 'roast-msg err';
+          msg.textContent = data.error || 'Failed to submit.';
+        }
+      } catch(e) {
+        msg.className = 'roast-msg err'; msg.textContent = 'Failed to submit. Try again.';
+      }
+    };
+
+    // Char counter
+    document.addEventListener('DOMContentLoaded', function() {
+      const input = document.getElementById('roast-input');
+      if (input) {
+        input.addEventListener('input', function() {
+          const len = input.value.length;
+          const counter = document.getElementById('roast-char-counter');
+          counter.textContent = `${len} / 280`;
+          counter.className = 'roast-char-counter' + (len > 250 ? ' near' : '');
+        });
+      }
+    });
+  })();
+  </script>
 <!-- submission styles + form injected by v6 -->
 <style>
   .submit-section { margin-top: 32px; border-top: 1px solid #f0f0f0; padding-top: 24px; }

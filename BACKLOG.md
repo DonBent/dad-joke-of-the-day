@@ -26,7 +26,7 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 ## Proposed (in flight)
 
-
+- v19 — Per-joke comment thread ("Roast the Joke"): lightweight visitor comment section on each joke page; no auth, IP-rate-limited, admin-moderated; turns the daily joke into a shared groaning ritual and drives return visits [CID-20260801-5B5AA475]
 
 ## Rejected / Not pursuing
 

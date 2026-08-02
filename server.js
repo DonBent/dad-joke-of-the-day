@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const builtinJokes = require('./jokes.json');
 
@@ -13,6 +14,7 @@ const CUSTOM_JOKES_FILE = path.join(__dirname, 'custom-jokes.json');
 const SUBMISSIONS_FILE = path.join(__dirname, 'submissions.json');
 const SUBSCRIBERS_FILE = process.env.SUBSCRIBERS_FILE || path.join(__dirname, 'subscribers.json');
 const HALL_OF_FAME_FILE = process.env.HALL_OF_FAME_FILE || path.join(__dirname, 'hall-of-fame.json');
+const COMMENTS_FILE = process.env.COMMENTS_FILE || path.join(__dirname, 'comments.json');
 
 app.use(express.json());
 
@@ -94,6 +96,30 @@ function checkRateLimit(ip) {
   if (times.length >= RATE_LIMIT_MAX) return false;
   times.push(now);
   return true;
+}
+
+// Comment rate limit: max 3 comments per joke per IP per 24 h
+const commentRateLimit = {}; // `${ip}:${jokeId}` -> [timestamps]
+const COMMENT_RATE_LIMIT_MAX = 3;
+const COMMENT_RATE_LIMIT_WINDOW = 24 * 60 * 60 * 1000; // 24 hours
+
+function checkCommentRateLimit(ip, jokeId) {
+  const key = `${ip}:${jokeId}`;
+  const now = Date.now();
+  const times = (commentRateLimit[key] || []).filter(t => now - t < COMMENT_RATE_LIMIT_WINDOW);
+  commentRateLimit[key] = times;
+  if (times.length >= COMMENT_RATE_LIMIT_MAX) return false;
+  times.push(now);
+  return true;
+}
+
+function hashIp(ip) {
+  return crypto.createHash('sha256').update(ip).digest('hex');
+}
+
+// Test helper: clear in-memory rate limit state
+function _resetCommentRateLimitForTest() {
+  Object.keys(commentRateLimit).forEach(k => delete commentRateLimit[k]);
 }
 
 // ── Static ───────────────────────────────────────────────────────────────────
@@ -357,9 +383,71 @@ app.post('/api/submit', (req, res) => {
   res.status(201).json({ message: 'Submitted! Your joke will appear after moderation.', sid: sub.sid });
 });
 
+// ── Comments (v19 — Roast the Joke) ────────────────────────────────────────
+app.get('/api/jokes/:id/comments', (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!allJokes().find(j => j.id === id)) return res.status(404).json({ error: 'Joke not found' });
+  const comments = readJson(COMMENTS_FILE, []);
+  const approved = comments
+    .filter(c => c.jokeId === id && c.status === 'approved')
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 50)
+    .map(({ id, jokeId, text, createdAt }) => ({ id, jokeId, text, createdAt }));
+  res.json(approved);
+});
+
+app.post('/api/jokes/:id/comments', (req, res) => {
+  const id = parseInt(req.params.id);
+  if (!allJokes().find(j => j.id === id)) return res.status(404).json({ error: 'Joke not found' });
+  const { text } = req.body || {};
+  if (!text || typeof text !== 'string' || text.trim().length === 0) {
+    return res.status(400).json({ error: 'text is required' });
+  }
+  if (text.trim().length > 280) {
+    return res.status(400).json({ error: 'text must be 280 characters or fewer' });
+  }
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  if (!checkCommentRateLimit(ip, id)) {
+    return res.status(429).json({ error: 'Too many comments for this joke. Try again tomorrow.' });
+  }
+  const comments = readJson(COMMENTS_FILE, []);
+  const comment = {
+    id: `c${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    jokeId: id,
+    text: text.trim(),
+    ip: hashIp(ip),
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  };
+  comments.push(comment);
+  writeJson(COMMENTS_FILE, comments);
+  res.status(201).json(comment);
+});
+
 // ── Admin API ────────────────────────────────────────────────────────────────
 app.get('/api/admin/submissions', adminAuth, (req, res) => {
   res.json(readJson(SUBMISSIONS_FILE, []));
+});
+
+// Admin: list all comments (pending/approved/rejected)
+app.get('/api/admin/comments', adminAuth, (req, res) => {
+  const comments = readJson(COMMENTS_FILE, []);
+  res.json(comments);
+});
+
+// Admin: moderate a comment
+app.patch('/api/admin/comments/:cid', adminAuth, (req, res) => {
+  const { cid } = req.params;
+  const { status } = req.body || {};
+  if (!['approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: 'status must be approved or rejected' });
+  }
+  const comments = readJson(COMMENTS_FILE, []);
+  const comment = comments.find(c => c.id === cid);
+  if (!comment) return res.status(404).json({ error: 'Comment not found' });
+  comment.status = status;
+  writeJson(COMMENTS_FILE, comments);
+  res.json(comment);
 });
 
 app.post('/api/admin/approve/:sid', adminAuth, (req, res) => {
@@ -470,3 +558,4 @@ if (require.main === module) {
 }
 
 module.exports = app;
+module.exports._resetCommentRateLimitForTest = _resetCommentRateLimitForTest;
