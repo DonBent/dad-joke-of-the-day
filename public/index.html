@@ -945,7 +945,7 @@
           '<div style="font-size:1rem;margin-bottom:10px;">' + escapeHtml(data.joke) + '</div>' +
           (reactionHtml ? '<div style="font-size:0.85rem;margin-bottom:8px;">' + reactionHtml + '</div>' : '') +
           '<div style="font-size:0.8rem;color:#aaa;margin-bottom:10px;">👍 ' + (data.votes || 0) + ' vote' + (data.votes !== 1 ? 's' : '') + '</div>' +
-          '<button onclick="navigator.clipboard.writeText(\'' + shareUrl.replace(/'/g, '') + '\').then(function(){var b=document.getElementById(\'arch-copy-btn\');if(b){b.textContent=\'Copied!\';setTimeout(function(){b.textContent=\'\ud83d� Share link\';},2000);}})"' +
+          '<button onclick="navigator.clipboard.writeText(\'' + shareUrl.replace(/'/g, '') + '\').then(function(){var b=document.getElementById(\'arch-copy-btn\');if(b){b.textContent=\'Copied!\';setTimeout(function(){b.textContent=\'🔗 Share link\';},2000);}})"' +
           ' id="arch-copy-btn" style="background:#ff9f1c;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;">' +
           '🔗 Share link</button>' +
           '</div>';
