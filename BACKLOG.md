@@ -23,10 +23,10 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 - v16 — Guess the Punchline challenge mode: daily interactive challenge hiding the punchline [CID-20260724-0763B543]
 - v17 — Emoji reaction bar per joke: expressive emoji reactions (😂 😬 🥁 🫠) stored server-side with live counts; one reaction per IP, toggle to remove [CID-20260725-A9F3D201]
 - v18 — "Random Joke" button: on-demand weighted-random joke fetch via GET /api/jokes/random with vote+reaction weighting; excludes today's daily pick; 🎲 Random badge; fade/slide swap animation [CID-20260728-B9118062]
+- v19 — Per-joke comment thread ("Roast the Joke"): lightweight visitor comment section on each joke page; no auth, IP-rate-limited, admin-moderated; turns the daily joke into a shared groaning ritual and drives return visits [CID-20260801-5B5AA475]
 
 ## Proposed (in flight)
 
-- v19 — Per-joke comment thread ("Roast the Joke"): lightweight visitor comment section on each joke page; no auth, IP-rate-limited, admin-moderated; turns the daily joke into a shared groaning ritual and drives return visits [CID-20260801-5B5AA475]
 
 ## Rejected / Not pursuing
 
