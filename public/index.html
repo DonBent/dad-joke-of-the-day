@@ -475,6 +475,8 @@
           const btn = document.getElementById('random-reaction-btn-' + stored);
           if (btn) { btn.classList.add('active'); btn.setAttribute('aria-pressed','true'); }
         }
+        // v19: update roast panel for this random joke
+        if (typeof window.showRoastPanel === 'function') window.showRoastPanel(data.id);
       } catch (e) {
         textEl.className = 'loading';
         textEl.textContent = 'Failed to load joke — try again!';
