@@ -1,6 +1,7 @@
 node_modules/
 .env
 votes.json
-votes.json
 custom-jokes.json
 submissions.json
+push-subscriptions.json
+comments.json
