@@ -29,6 +29,8 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 ## Proposed (in flight)
 
+- v22 — "On This Day" joke archive: date-picker browse of any past date's deterministic joke, with vote counts and reactions; shareable ?date= links; adds exploration/nostalgia layer on top of existing content with near-zero cost [CID-20260802-11B7A540]
+
 
 
 
