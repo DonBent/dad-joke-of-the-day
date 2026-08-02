@@ -284,6 +284,30 @@
         </div>
       </div>
     </div>
+    <!-- On This Day Archive panel (v22) -->
+    <div id="archive-section" style="margin-top:20px;">
+      <button id="archive-toggle" data-testid="archive-toggle"
+        onclick="toggleArchivePanel()"
+        style="background:#fff8ec;color:#e07b00;border:2px solid #ffd98a;border-radius:10px;
+               padding:10px 22px;font-size:0.9rem;font-family:inherit;font-weight:600;
+               cursor:pointer;width:100%;text-align:left;">
+        📅 On This Day
+      </button>
+      <div id="archive-panel" data-testid="archive-panel" style="display:none;margin-top:12px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <input id="archive-date" data-testid="archive-date" type="date"
+            style="border:2px solid #ffd98a;border-radius:8px;padding:8px 12px;
+                   font-size:0.9rem;font-family:inherit;background:#fffdf5;color:inherit;flex:1;min-width:140px;"
+          />
+          <button onclick="lookUpArchiveDate()"
+            style="background:#ff9f1c;color:#fff;border:none;border-radius:8px;
+                   padding:8px 18px;font-size:0.85rem;font-weight:600;cursor:pointer;">
+            Look it up
+          </button>
+        </div>
+        <div id="archive-result" data-testid="archive-result" style="margin-top:14px;"></div>
+      </div>
+    </div>
     <!-- Random joke section (v18) -->
     <div class="random-joke-section">
       <button id="random-joke-btn" data-testid="random-joke-btn" onclick="fetchRandomJoke()">🎲 Random Joke</button>
@@ -859,6 +883,82 @@
         msg.textContent = alreadyVoted ? 'You already voted today!' : 'Come back tomorrow for a new duel!';
       }
     }
+  })();
+  </script>
+
+  <!-- On This Day Archive JS (v22) -->
+  <script>
+  (function () {
+    let archiveOpen = false;
+
+    // Set max date on the input to today
+    function initArchive() {
+      const input = document.getElementById('archive-date');
+      if (input) input.max = new Date().toISOString().slice(0, 10);
+      // Auto-open if ?date= param present
+      const params = new URLSearchParams(window.location.search);
+      const dateParam = params.get('date');
+      if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+        if (input) input.value = dateParam;
+        openArchivePanel();
+        fetchArchiveJoke(dateParam);
+      }
+    }
+
+    function openArchivePanel() {
+      archiveOpen = true;
+      document.getElementById('archive-panel').style.display = 'block';
+    }
+
+    window.toggleArchivePanel = function () {
+      archiveOpen = !archiveOpen;
+      document.getElementById('archive-panel').style.display = archiveOpen ? 'block' : 'none';
+    };
+
+    window.lookUpArchiveDate = async function () {
+      const input = document.getElementById('archive-date');
+      const date = input ? input.value : '';
+      if (!date) return;
+      await fetchArchiveJoke(date);
+    };
+
+    async function fetchArchiveJoke(date) {
+      const el = document.getElementById('archive-result');
+      el.innerHTML = '<span style="color:#999">Looking up…</span>';
+      try {
+        const res = await fetch('/api/jokes/date/' + encodeURIComponent(date));
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          el.innerHTML = '<span style="color:#c0392b">' +
+            (err.error || "Couldn't find a joke for that date. Try another!") + '</span>';
+          return;
+        }
+        const data = await res.json();
+        const label = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        const shareUrl = window.location.origin + window.location.pathname + '?date=' + encodeURIComponent(date);
+        const reactionHtml = data.reactions
+          ? Object.entries(data.reactions).filter(([,v]) => v > 0).map(([k,v]) => k + ' ' + v).join('  ')
+          : '';
+        el.innerHTML =
+          '<div style="background:#fffdf5;border:2px solid #ffd98a;border-radius:12px;padding:16px;">' +
+          '<div style="font-size:0.8rem;color:#999;margin-bottom:6px;">' + label + '</div>' +
+          '<div style="font-size:1rem;margin-bottom:10px;">' + escapeHtml(data.joke) + '</div>' +
+          (reactionHtml ? '<div style="font-size:0.85rem;margin-bottom:8px;">' + reactionHtml + '</div>' : '') +
+          '<div style="font-size:0.8rem;color:#aaa;margin-bottom:10px;">👍 ' + (data.votes || 0) + ' vote' + (data.votes !== 1 ? 's' : '') + '</div>' +
+          '<button onclick="navigator.clipboard.writeText(\'' + shareUrl.replace(/'/g, '') + '\').then(function(){var b=document.getElementById(\'arch-copy-btn\');if(b){b.textContent=\'Copied!\';setTimeout(function(){b.textContent=\'\ud83d� Share link\';},2000);}})"' +
+          ' id="arch-copy-btn" style="background:#ff9f1c;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;">' +
+          '🔗 Share link</button>' +
+          '</div>';
+      } catch (e) {
+        el.innerHTML = '<span style="color:#c0392b">Couldn\'t find a joke for that date. Try another!</span>';
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    document.addEventListener('DOMContentLoaded', initArchive);
   })();
   </script>
 <!-- submission styles + form injected by v6 -->
