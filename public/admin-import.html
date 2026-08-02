@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Bulk Joke Import</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #fafafa; color: #333; padding: 24px; }
+    h1 { font-size: 1.4rem; margin-bottom: 8px; }
+    #stats { font-size: 0.85rem; color: #666; margin-bottom: 16px; }
+    #auth-bar { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+    #auth-bar input { border: 1px solid #ddd; border-radius: 6px; padding: 7px 12px; font-size: 0.9rem; flex: 1; min-width: 200px; }
+    #auth-bar button { background: #ff9f1c; color: #fff; border: none; border-radius: 6px; padding: 8px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+    #bulk-bar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+    #bulk-bar button { border: none; border-radius: 6px; padding: 8px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+    #btn-approve-all { background: #27ae60; color: #fff; }
+    #btn-reject-all  { background: #e74c3c; color: #fff; }
+    #btn-approve-sel { background: #2ecc71; color: #fff; }
+    #btn-reject-sel  { background: #e67e22; color: #fff; }
+    #page-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; font-size: 0.85rem; }
+    #page-bar button { border: 1px solid #ddd; background: #fff; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+    #joke-list { display: flex; flex-direction: column; gap: 10px; }
+    .joke-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 10px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
+    .joke-card.approved { border-color: #27ae60; background: #f0fff5; }
+    .joke-card.rejected { border-color: #e74c3c; background: #fff5f5; opacity: 0.6; }
+    .joke-card input[type=checkbox] { margin-top: 3px; flex-shrink: 0; }
+    .joke-text { flex: 1; font-size: 0.9rem; line-height: 1.4; }
+    .joke-meta { font-size: 0.75rem; color: #999; margin-top: 4px; }
+    .joke-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .joke-actions button { border: none; border-radius: 6px; padding: 5px 12px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+    .btn-approve { background: #27ae60; color: #fff; }
+    .btn-reject  { background: #e74c3c; color: #fff; }
+    .status-badge { font-size: 0.75rem; font-weight: 700; border-radius: 4px; padding: 2px 6px; }
+    .status-approved { background: #d5f5e3; color: #1e8449; }
+    .status-rejected { background: #fadbd8; color: #922b21; }
+    #msg { font-size: 0.85rem; color: #27ae60; margin-bottom: 10px; min-height: 20px; }
+    #loading { color: #999; padding: 40px; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>⚙️ Bulk Joke Import — Admin Review</h1>
+  <div id="stats">Loading…</div>
+  <div id="auth-bar">
+    <input id="token-input" type="password" placeholder="Admin token" />
+    <button onclick="loadPage(1)">Load</button>
+  </div>
+  <div id="msg"></div>
+  <div id="bulk-bar">
+    <button id="btn-approve-all" onclick="bulkAction('approve', true)">✅ Approve ALL pending</button>
+    <button id="btn-reject-all"  onclick="bulkAction('reject', true)">❌ Reject ALL pending</button>
+    <button id="btn-approve-sel" onclick="bulkAction('approve', false)">✅ Approve selected</button>
+    <button id="btn-reject-sel"  onclick="bulkAction('reject', false)">❌ Reject selected</button>
+  </div>
+  <div id="page-bar">
+    <button onclick="changePage(-1)">← Prev</button>
+    <span id="page-info">Page 1</span>
+    <button onclick="changePage(1)">Next →</button>
+    <span id="per-page-label">50 per page</span>
+  </div>
+  <div id="joke-list"><div id="loading">Enter admin token and click Load.</div></div>
+
+  <script>
+  let currentPage = 1;
+  let totalJokes = 0;
+  const LIMIT = 50;
+  let jokeIndexes = []; // original indexes in import-pending.json for current page
+
+  function token() { return document.getElementById('token-input').value.trim(); }
+  function msg(text, color) {
+    const el = document.getElementById('msg');
+    el.textContent = text;
+    el.style.color = color || '#27ae60';
+  }
+
+  async function loadStats() {
+    try {
+      const res = await fetch('/api/admin/import/stats', { headers: { 'X-Admin-Token': token() } });
+      if (!res.ok) return;
+      const d = await res.json();
+      document.getElementById('stats').textContent =
+        `Total: ${d.total} | Pending: ${d.pending} | Approved: ${d.approved} | Rejected: ${d.rejected}`;
+    } catch {}
+  }
+
+  async function loadPage(page) {
+    currentPage = page;
+    document.getElementById('joke-list').innerHTML = '<div id="loading">Loading…</div>';
+    try {
+      const res = await fetch(`/api/admin/import/pending?page=${page}&limit=${LIMIT}`, {
+        headers: { 'X-Admin-Token': token() }
+      });
+      if (res.status === 403) { document.getElementById('joke-list').innerHTML = '<div style="color:red">Invalid token.</div>'; return; }
+      const d = await res.json();
+      totalJokes = d.total;
+      // pending endpoint returns only pending; track positional indexes client-side
+      jokeIndexes = Array.from({ length: d.jokes.length }, (_, i) => (page - 1) * LIMIT + i);
+      renderJokes(d.jokes);
+      document.getElementById('page-info').textContent = `Page ${page} of ${Math.ceil(totalJokes / LIMIT) || 1} (${totalJokes} pending)`;
+    } catch (e) {
+      document.getElementById('joke-list').innerHTML = '<div style="color:red">Error loading jokes.</div>';
+    }
+    await loadStats();
+  }
+
+  function renderJokes(jokes) {
+    const list = document.getElementById('joke-list');
+    if (!jokes.length) { list.innerHTML = '<div style="color:#999;padding:20px;">No pending jokes to review!</div>'; return; }
+    list.innerHTML = jokes.map((j, i) => `
+      <div class="joke-card" id="card-${i}">
+        <input type="checkbox" id="chk-${i}" data-idx="${jokeIndexes[i]}" />
+        <div class="joke-text">
+          <div>${escHtml(j.joke)}</div>
+          <div class="joke-meta">Source: ${escHtml(j.source || '?')} · Category: ${escHtml(j.category || '?')}</div>
+        </div>
+        <div class="joke-actions">
+          <button class="btn-approve" onclick="singleAction('approve', ${i}, ${jokeIndexes[i]})">✅</button>
+          <button class="btn-reject"  onclick="singleAction('reject',  ${i}, ${jokeIndexes[i]})">❌</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function singleAction(action, cardIdx, pendingIdx) {
+    try {
+      const res = await fetch(`/api/admin/import/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token() },
+        body: JSON.stringify({ ids: [pendingIdx] })
+      });
+      const d = await res.json();
+      const card = document.getElementById('card-' + cardIdx);
+      if (card) { card.className = 'joke-card ' + action + 'd'; card.querySelector('.joke-actions').innerHTML = `<span class="status-badge status-${action}d">${action === 'approve' ? 'Approved' : 'Rejected'}</span>`; }
+      msg(action === 'approve' ? `✅ Approved (pool now ${d.total} jokes)` : `❌ Rejected`);
+      await loadStats();
+    } catch (e) { msg('Error: ' + e.message, 'red'); }
+  }
+
+  async function bulkAction(action, all) {
+    const ids = all ? undefined : Array.from(document.querySelectorAll('input[data-idx]:checked')).map(el => parseInt(el.dataset.idx));
+    if (!all && (!ids || !ids.length)) { msg('Select some jokes first.', '#e07b00'); return; }
+    const confirm_msg = all ? `${action} ALL pending jokes?` : `${action} ${ids.length} selected joke(s)?`;
+    if (!window.confirm(confirm_msg)) return;
+    try {
+      const body = all ? { all: true } : { ids };
+      const res = await fetch(`/api/admin/import/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token() },
+        body: JSON.stringify(body)
+      });
+      const d = await res.json();
+      const count = d.approved || d.rejected;
+      msg(`${action === 'approve' ? '✅ Approved' : '❌ Rejected'} ${count} joke(s)${d.total ? ' · Pool: ' + d.total : ''}`);
+      await loadPage(1);
+    } catch (e) { msg('Error: ' + e.message, 'red'); }
+  }
+
+  function changePage(delta) {
+    const max = Math.ceil(totalJokes / LIMIT) || 1;
+    const next = Math.max(1, Math.min(max, currentPage + delta));
+    if (next !== currentPage) loadPage(next);
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  </script>
+</body>
+</html>
