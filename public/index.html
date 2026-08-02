@@ -242,6 +242,48 @@
         🔔 Get daily joke notification
       </button>
     </div>
+    <!-- Joke Duel panel (v21) -->
+    <div id="duel-section" style="margin-top:20px;">
+      <button id="duel-toggle" data-testid="duel-toggle"
+        onclick="toggleDuelPanel()"
+        style="background:#fff8ec;color:#e07b00;border:2px solid #ffd98a;border-radius:10px;
+               padding:10px 22px;font-size:0.9rem;font-family:inherit;font-weight:600;
+               cursor:pointer;width:100%;text-align:left;">
+        ⚔️ Today's duel: vote for the funnier joke!
+      </button>
+      <div id="duel-panel" data-testid="duel-panel" style="display:none;margin-top:12px;">
+        <div id="duel-loading" style="text-align:center;color:#999;padding:18px;">Loading duel…</div>
+        <div id="duel-cards" data-testid="duel-cards" style="display:none;">
+          <div style="display:flex;gap:14px;flex-wrap:wrap;">
+            <div id="duel-card-a" data-testid="duel-card-a"
+              style="flex:1;min-width:200px;background:#fffdf5;border:2px solid #ffd98a;
+                     border-radius:12px;padding:16px;position:relative;">
+              <div id="duel-joke-a" style="font-size:0.95rem;margin-bottom:14px;"></div>
+              <button id="duel-vote-a" data-testid="duel-vote-a"
+                onclick="duelVote('A')"
+                style="background:#ff9f1c;color:#fff;border:none;border-radius:8px;
+                       padding:8px 18px;font-size:0.85rem;font-weight:600;cursor:pointer;width:100%;">
+                👍 Vote A
+              </button>
+              <div id="duel-badge-a" data-testid="duel-badge-a" style="display:none;margin-top:8px;text-align:center;font-weight:700;"></div>
+            </div>
+            <div id="duel-card-b" data-testid="duel-card-b"
+              style="flex:1;min-width:200px;background:#fffdf5;border:2px solid #ffd98a;
+                     border-radius:12px;padding:16px;position:relative;">
+              <div id="duel-joke-b" style="font-size:0.95rem;margin-bottom:14px;"></div>
+              <button id="duel-vote-b" data-testid="duel-vote-b"
+                onclick="duelVote('B')"
+                style="background:#ff9f1c;color:#fff;border:none;border-radius:8px;
+                       padding:8px 18px;font-size:0.85rem;font-weight:600;cursor:pointer;width:100%;">
+                👍 Vote B
+              </button>
+              <div id="duel-badge-b" data-testid="duel-badge-b" style="display:none;margin-top:8px;text-align:center;font-weight:700;"></div>
+            </div>
+          </div>
+          <div id="duel-result-msg" data-testid="duel-result-msg" style="display:none;margin-top:14px;text-align:center;color:#888;font-size:0.85rem;"></div>
+        </div>
+      </div>
+    </div>
     <!-- Random joke section (v18) -->
     <div class="random-joke-section">
       <button id="random-joke-btn" data-testid="random-joke-btn" onclick="fetchRandomJoke()">🎲 Random Joke</button>
@@ -745,6 +787,78 @@
     };
 
     document.addEventListener('DOMContentLoaded', initPush);
+  })();
+  </script>
+
+  <!-- Joke Duel JS (v21) -->
+  <script>
+  (function () {
+    const DUEL_VOTED_KEY = 'djotd_duel_voted';
+    let duelOpen = false;
+    let duelLoaded = false;
+
+    window.toggleDuelPanel = function () {
+      duelOpen = !duelOpen;
+      document.getElementById('duel-panel').style.display = duelOpen ? 'block' : 'none';
+      if (duelOpen && !duelLoaded) loadDuel();
+    };
+
+    async function loadDuel() {
+      duelLoaded = true;
+      try {
+        const res = await fetch('/api/duel/today');
+        const data = await res.json();
+        document.getElementById('duel-loading').style.display = 'none';
+        document.getElementById('duel-cards').style.display = 'block';
+        document.getElementById('duel-joke-a').textContent = data.jokeA.joke;
+        document.getElementById('duel-joke-b').textContent = data.jokeB.joke;
+        if (data.voted || localStorage.getItem(DUEL_VOTED_KEY) === new Date().toISOString().slice(0,10)) {
+          showDuelResults(data.votesA, data.votesB);
+        }
+      } catch (e) {
+        document.getElementById('duel-loading').textContent = 'Failed to load duel — try again!';
+      }
+    }
+
+    window.duelVote = async function (pick) {
+      try {
+        const res = await fetch('/api/duel/vote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pick })
+        });
+        if (res.status === 409) { showDuelResults(null, null, true); return; }
+        const data = await res.json();
+        localStorage.setItem(DUEL_VOTED_KEY, new Date().toISOString().slice(0,10));
+        showDuelResults(data.votesA, data.votesB, false, data.winner);
+      } catch (e) {}
+    };
+
+    function showDuelResults(votesA, votesB, alreadyVoted, winner) {
+      const btnA = document.getElementById('duel-vote-a');
+      const btnB = document.getElementById('duel-vote-b');
+      if (btnA) btnA.style.display = 'none';
+      if (btnB) btnB.style.display = 'none';
+      const badgeA = document.getElementById('duel-badge-a');
+      const badgeB = document.getElementById('duel-badge-b');
+      if (badgeA && votesA !== null) {
+        badgeA.style.display = 'block';
+        badgeA.textContent = (winner === 'A' ? '\ud83c\udfc6 ' : '') + votesA + ' vote' + (votesA !== 1 ? 's' : '');
+        document.getElementById('duel-card-a').style.borderColor = winner === 'A' ? '#f5a623' : '#ffd98a';
+        document.getElementById('duel-card-a').style.background = winner === 'A' ? '#fff8ec' : '';
+      }
+      if (badgeB && votesB !== null) {
+        badgeB.style.display = 'block';
+        badgeB.textContent = (winner === 'B' ? '\ud83c\udfc6 ' : '') + votesB + ' vote' + (votesB !== 1 ? 's' : '');
+        document.getElementById('duel-card-b').style.borderColor = winner === 'B' ? '#f5a623' : '#ffd98a';
+        document.getElementById('duel-card-b').style.background = winner === 'B' ? '#fff8ec' : '';
+      }
+      const msg = document.getElementById('duel-result-msg');
+      if (msg) {
+        msg.style.display = 'block';
+        msg.textContent = alreadyVoted ? 'You already voted today!' : 'Come back tomorrow for a new duel!';
+      }
+    }
   })();
   </script>
 <!-- submission styles + form injected by v6 -->
