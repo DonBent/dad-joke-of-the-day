@@ -28,6 +28,8 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 ## Proposed (in flight)
 
+- v21 — Joke Duel: daily head-to-head joke voting; two date-seeded jokes pitted against each other, one IP vote per day, live results revealed after voting; adds a comparative daily ritual distinct from cumulative upvotes [CID-20260802-B3194F39]
+
 
 
 ## Rejected / Not pursuing
