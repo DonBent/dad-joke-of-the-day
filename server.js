@@ -13,13 +13,14 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'dev-admin-token';
 const VOTES_FILE = process.env.VOTES_FILE || path.join(__dirname, 'votes.json');
 const REACTIONS_FILE = process.env.REACTIONS_FILE || path.join(__dirname, 'reactions.json');
-const CUSTOM_JOKES_FILE = path.join(__dirname, 'custom-jokes.json');
+const CUSTOM_JOKES_FILE = process.env.CUSTOM_JOKES_FILE || path.join(__dirname, 'custom-jokes.json');
 const SUBMISSIONS_FILE = path.join(__dirname, 'submissions.json');
 const SUBSCRIBERS_FILE = process.env.SUBSCRIBERS_FILE || path.join(__dirname, 'subscribers.json');
 const HALL_OF_FAME_FILE = process.env.HALL_OF_FAME_FILE || path.join(__dirname, 'hall-of-fame.json');
 const COMMENTS_FILE = process.env.COMMENTS_FILE || path.join(__dirname, 'comments.json');
 const PUSH_SUBS_FILE = process.env.PUSH_SUBS_FILE || path.join(__dirname, 'push-subscriptions.json');
 const DUEL_FILE = process.env.DUEL_FILE || path.join(__dirname, 'duel.json');
+const IMPORT_PENDING_FILE = process.env.IMPORT_PENDING_FILE || path.join(__dirname, 'import-pending.json');
 
 // ── VAPID / Web Push setup ───────────────────────────────────────────────────
 const VAPID_PUBLIC_KEY  = process.env.VAPID_PUBLIC_KEY  || '';
@@ -644,6 +645,75 @@ if (require.main === module) {
   });
 }
 
+
+// ── Bulk Import Admin API (v23) ────────────────────────────────────────────
+function normalize(str) {
+  return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// GET /api/admin/import/pending?page=1&limit=50
+app.get('/api/admin/import/pending', adminAuth, (req, res) => {
+  const pending = readJson(IMPORT_PENDING_FILE, []).filter(j => j.status === 'pending');
+  const page  = Math.max(1, parseInt(req.query.page)  || 1);
+  const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
+  const start = (page - 1) * limit;
+  res.json({
+    total: pending.length,
+    page,
+    limit,
+    jokes: pending.slice(start, start + limit)
+  });
+});
+
+// GET /api/admin/import/stats
+app.get('/api/admin/import/stats', adminAuth, (req, res) => {
+  const all = readJson(IMPORT_PENDING_FILE, []);
+  const counts = { pending: 0, approved: 0, rejected: 0 };
+  for (const j of all) counts[j.status] = (counts[j.status] || 0) + 1;
+  res.json({ total: all.length, ...counts });
+});
+
+// POST /api/admin/import/approve  { ids: [idx, ...] }  or  { all: true }
+app.post('/api/admin/import/approve', adminAuth, (req, res) => {
+  const { ids, all: approveAll } = req.body || {};
+  const pending = readJson(IMPORT_PENDING_FILE, []);
+  const custom  = readJson(CUSTOM_JOKES_FILE, []);
+  const existingSet = new Set([
+    ...builtinJokes.map(j => normalize(j.joke)),
+    ...custom.map(j => normalize(j.joke))
+  ]);
+  let approved = 0;
+  for (let i = 0; i < pending.length; i++) {
+    const j = pending[i];
+    if (j.status !== 'pending') continue;
+    if (!approveAll && !(ids || []).includes(i)) continue;
+    if (existingSet.has(normalize(j.joke))) { j.status = 'rejected'; continue; }
+    j.status = 'approved';
+    const newJoke = { id: nextId(), joke: j.joke, category: j.category || 'misc', source: j.source };
+    custom.push(newJoke);
+    existingSet.add(normalize(j.joke));
+    approved++;
+  }
+  writeJson(IMPORT_PENDING_FILE, pending);
+  writeJson(CUSTOM_JOKES_FILE, custom);
+  res.json({ approved, total: allJokes().length });
+});
+
+// POST /api/admin/import/reject  { ids: [idx, ...] }  or  { all: true }
+app.post('/api/admin/import/reject', adminAuth, (req, res) => {
+  const { ids, all: rejectAll } = req.body || {};
+  const pending = readJson(IMPORT_PENDING_FILE, []);
+  let rejected = 0;
+  for (let i = 0; i < pending.length; i++) {
+    const j = pending[i];
+    if (j.status !== 'pending') continue;
+    if (!rejectAll && !(ids || []).includes(i)) continue;
+    j.status = 'rejected';
+    rejected++;
+  }
+  writeJson(IMPORT_PENDING_FILE, pending);
+  res.json({ rejected });
+});
 
 // ── Joke Duel (v21) ─────────────────────────────────────────────────────────
 function duelPairForDate(dateStr) {
