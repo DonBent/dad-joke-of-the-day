@@ -27,6 +27,8 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 ## Proposed (in flight)
 
+- v20 — Daily browser push notification opt-in: one-click Service Worker/Web Push subscription delivering the joke of the day at 08:00; zero-friction re-engagement loop with no email required; VAPID-based, flat-file subscription store [CID-20260802-C79DD50D]
+
 
 ## Rejected / Not pursuing
 
