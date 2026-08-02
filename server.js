@@ -645,6 +645,25 @@ if (require.main === module) {
 }
 
 
+// ── On This Day Archive (v22) ──────────────────────────────────────────────
+app.get('/api/jokes/date/:date', (req, res) => {
+  const { date } = req.params;
+  // Validate YYYY-MM-DD format
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Invalid date format' });
+  }
+  const d = new Date(date + 'T00:00:00Z');
+  if (isNaN(d.getTime())) {
+    return res.status(400).json({ error: 'Invalid date format' });
+  }
+  const today = todayStr();
+  if (date > today) {
+    return res.status(400).json({ error: 'Date must be today or in the past' });
+  }
+  const joke = jokeForDate(date);
+  res.json({ ...jokeWithVotes(joke), date, jokeId: joke.id });
+});
+
 // ── Joke Duel (v21) ─────────────────────────────────────────────────────────
 function duelPairForDate(dateStr) {
   const jokes = allJokes();
