@@ -25,10 +25,10 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 - v18 — "Random Joke" button: on-demand weighted-random joke fetch via GET /api/jokes/random with vote+reaction weighting; excludes today's daily pick; 🎲 Random badge; fade/slide swap animation [CID-20260728-B9118062]
 - v19 — Per-joke comment thread ("Roast the Joke"): lightweight visitor comment section on each joke page; no auth, IP-rate-limited, admin-moderated; turns the daily joke into a shared groaning ritual and drives return visits [CID-20260801-5B5AA475]
 - v20 — Daily browser push notification opt-in: one-click Service Worker/Web Push (VAPID) subscription delivering the joke of the day at 08:00; zero-friction daily re-engagement with no email required [CID-20260802-C79DD50D]
+- v21 — Joke Duel: daily head-to-head joke voting; two date-seeded jokes pitted against each other, one IP vote per day, live results revealed after voting with 🏆 winner highlight [CID-20260802-B3194F39]
 
 ## Proposed (in flight)
 
-- v21 — Joke Duel: daily head-to-head joke voting; two date-seeded jokes pitted against each other, one IP vote per day, live results revealed after voting; adds a comparative daily ritual distinct from cumulative upvotes [CID-20260802-B3194F39]
 
 
 
