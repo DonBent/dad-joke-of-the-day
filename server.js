@@ -3,6 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const webpush = require('web-push');
+const cron = require('node-cron');
 const builtinJokes = require('./jokes.json');
 
 const app = express();
@@ -15,6 +17,15 @@ const SUBMISSIONS_FILE = path.join(__dirname, 'submissions.json');
 const SUBSCRIBERS_FILE = process.env.SUBSCRIBERS_FILE || path.join(__dirname, 'subscribers.json');
 const HALL_OF_FAME_FILE = process.env.HALL_OF_FAME_FILE || path.join(__dirname, 'hall-of-fame.json');
 const COMMENTS_FILE = process.env.COMMENTS_FILE || path.join(__dirname, 'comments.json');
+const PUSH_SUBS_FILE = process.env.PUSH_SUBS_FILE || path.join(__dirname, 'push-subscriptions.json');
+
+// ── VAPID / Web Push setup ───────────────────────────────────────────────────
+const VAPID_PUBLIC_KEY  = process.env.VAPID_PUBLIC_KEY  || '';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
+const VAPID_SUBJECT     = process.env.VAPID_SUBJECT     || 'mailto:admin@dadjoke.local';
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+}
 
 app.use(express.json());
 
@@ -475,6 +486,72 @@ app.delete('/api/admin/submissions/:sid', adminAuth, (req, res) => {
 });
 
 // ── Subscribe / Unsubscribe ──────────────────────────────────────────────────
+
+// ── Push Notifications (v20) ────────────────────────────────────────────────
+app.get('/api/push/vapid-public-key', (req, res) => {
+  res.json({ publicKey: VAPID_PUBLIC_KEY });
+});
+
+app.post('/api/push/subscribe', (req, res) => {
+  const sub = req.body;
+  if (!sub || !sub.endpoint) return res.status(400).json({ error: 'Invalid subscription object' });
+  const subs = readJson(PUSH_SUBS_FILE, []);
+  if (subs.some(s => s.endpoint === sub.endpoint)) {
+    return res.status(409).json({ error: 'Already subscribed' });
+  }
+  subs.push(sub);
+  writeJson(PUSH_SUBS_FILE, subs);
+  res.status(200).json({ message: 'Subscribed' });
+});
+
+app.post('/api/push/unsubscribe', (req, res) => {
+  const { endpoint } = req.body || {};
+  if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
+  let subs = readJson(PUSH_SUBS_FILE, []);
+  const before = subs.length;
+  subs = subs.filter(s => s.endpoint !== endpoint);
+  writeJson(PUSH_SUBS_FILE, subs);
+  if (subs.length === before) return res.status(404).json({ error: 'Subscription not found' });
+  res.json({ message: 'Unsubscribed' });
+});
+
+async function sendDailyPush(overrideUrl) {
+  const subs = readJson(PUSH_SUBS_FILE, []);
+  if (!subs.length) return { sent: 0, failed: 0, removed: 0 };
+  const joke = jokeForDate(todayStr());
+  const appUrl = overrideUrl || process.env.APP_URL || 'http://localhost:3000';
+  const payload = JSON.stringify({
+    title: '😄 Joke of the Day',
+    body: joke.joke,
+    url: appUrl
+  });
+  let sent = 0, failed = 0;
+  const expired = [];
+  for (const sub of subs) {
+    try {
+      await webpush.sendNotification(sub, payload);
+      sent++;
+    } catch (err) {
+      if (err.statusCode === 410) {
+        expired.push(sub.endpoint);
+      } else {
+        failed++;
+      }
+    }
+  }
+  if (expired.length) {
+    const remaining = readJson(PUSH_SUBS_FILE, []).filter(s => !expired.includes(s.endpoint));
+    writeJson(PUSH_SUBS_FILE, remaining);
+  }
+  return { sent, failed, removed: expired.length };
+}
+
+// Admin: manually trigger push dispatch
+app.post('/api/admin/send-push', adminAuth, async (req, res) => {
+  const result = await sendDailyPush();
+  res.json({ message: 'Push dispatch complete', ...result });
+});
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 app.post('/api/subscribe', (req, res) => {
@@ -555,7 +632,16 @@ app.post('/api/admin/send-digest', adminAuth, async (req, res) => {
 
 if (require.main === module) {
   app.listen(PORT, () => console.log(`Dad Joke server running on port ${PORT}`));
+  // Daily push notification at 08:00 server local time
+  cron.schedule('0 8 * * *', () => {
+    sendDailyPush().then(r => {
+      console.log(JSON.stringify({ event: 'daily_push_sent', ...r }));
+    }).catch(err => {
+      console.error(JSON.stringify({ event: 'daily_push_error', error: err.message }));
+    });
+  });
 }
 
 module.exports = app;
 module.exports._resetCommentRateLimitForTest = _resetCommentRateLimitForTest;
+module.exports.sendDailyPush = sendDailyPush;
