@@ -233,6 +233,15 @@
       <button class="primary" id="action-btn" onclick="onAction()">Another one! 👴</button>
       <button id="share-btn" onclick="shareJoke()">🔗 Share</button>
     </div>
+    <!-- Push notification opt-in (v20) -->
+    <div id="push-section" style="display:none;margin-top:18px;">
+      <button id="push-btn" data-testid="push-btn" onclick="togglePushSubscription()"
+        style="background:#fff3ec;color:#ff6b35;border:2px solid #ffd5bf;border-radius:10px;
+               padding:10px 22px;font-size:0.9rem;font-family:inherit;font-weight:600;
+               cursor:pointer;transition:all 0.2s;width:100%;">
+        🔔 Get daily joke notification
+      </button>
+    </div>
     <!-- Random joke section (v18) -->
     <div class="random-joke-section">
       <button id="random-joke-btn" data-testid="random-joke-btn" onclick="fetchRandomJoke()">🎲 Random Joke</button>
@@ -649,6 +658,93 @@
         });
       }
     });
+  })();
+  </script>
+
+  <!-- Push Notifications JS (v20) -->
+  <script>
+  (function () {
+    const PUSH_SUB_KEY = 'djotd_push_subscribed';
+    let swReg = null;
+    let vapidPublicKey = null;
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = atob(base64);
+      return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+    }
+
+    function setPushBtnState(subscribed) {
+      const btn = document.getElementById('push-btn');
+      if (!btn) return;
+      if (subscribed) {
+        btn.textContent = '\ud83d\udd15 Unsubscribe from notifications';
+        btn.style.background = '#f0f0f0';
+        btn.style.color = '#888';
+        btn.style.borderColor = '#ddd';
+      } else {
+        btn.textContent = '\ud83d\udd14 Get daily joke notification';
+        btn.style.background = '#fff3ec';
+        btn.style.color = '#ff6b35';
+        btn.style.borderColor = '#ffd5bf';
+      }
+    }
+
+    async function initPush() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+      try {
+        const keyRes = await fetch('/api/push/vapid-public-key');
+        const keyData = await keyRes.json();
+        vapidPublicKey = keyData.publicKey;
+        swReg = await navigator.serviceWorker.register('/sw.js');
+        // Show button
+        document.getElementById('push-section').style.display = 'block';
+        // Restore state from localStorage
+        const stored = localStorage.getItem(PUSH_SUB_KEY);
+        setPushBtnState(stored === '1');
+      } catch (e) {}
+    }
+
+    window.togglePushSubscription = async function () {
+      if (!swReg || !vapidPublicKey) return;
+      const subscribed = localStorage.getItem(PUSH_SUB_KEY) === '1';
+      if (subscribed) {
+        // Unsubscribe
+        try {
+          const sub = await swReg.pushManager.getSubscription();
+          if (sub) {
+            await fetch('/api/push/unsubscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ endpoint: sub.endpoint })
+            });
+            await sub.unsubscribe();
+          }
+          localStorage.removeItem(PUSH_SUB_KEY);
+          setPushBtnState(false);
+        } catch (e) {}
+      } else {
+        // Subscribe
+        try {
+          const permission = await Notification.requestPermission();
+          if (permission !== 'granted') return;
+          const sub = await swReg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+          });
+          await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sub)
+          });
+          localStorage.setItem(PUSH_SUB_KEY, '1');
+          setPushBtnState(true);
+        } catch (e) {}
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', initPush);
   })();
   </script>
 <!-- submission styles + form injected by v6 -->
