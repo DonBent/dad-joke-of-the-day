@@ -19,6 +19,7 @@ const SUBSCRIBERS_FILE = process.env.SUBSCRIBERS_FILE || path.join(__dirname, 's
 const HALL_OF_FAME_FILE = process.env.HALL_OF_FAME_FILE || path.join(__dirname, 'hall-of-fame.json');
 const COMMENTS_FILE = process.env.COMMENTS_FILE || path.join(__dirname, 'comments.json');
 const PUSH_SUBS_FILE = process.env.PUSH_SUBS_FILE || path.join(__dirname, 'push-subscriptions.json');
+const DUEL_FILE = process.env.DUEL_FILE || path.join(__dirname, 'duel.json');
 
 // ── VAPID / Web Push setup ───────────────────────────────────────────────────
 const VAPID_PUBLIC_KEY  = process.env.VAPID_PUBLIC_KEY  || '';
@@ -643,6 +644,63 @@ if (require.main === module) {
   });
 }
 
+
+// ── Joke Duel (v21) ─────────────────────────────────────────────────────────
+function duelPairForDate(dateStr) {
+  const jokes = allJokes();
+  const dailyJoke = jokeForDate(dateStr);
+  const pool = jokes.filter(j => j.id !== dailyJoke.id);
+  // Two independent hashes for positions A and B
+  let hashA = 0, hashB = 0;
+  for (let i = 0; i < dateStr.length; i++) {
+    hashA = (hashA * 31 + dateStr.charCodeAt(i)) & 0xffffffff;
+    hashB = (hashB * 37 + dateStr.charCodeAt(i) + 7) & 0xffffffff;
+  }
+  const idxA = Math.abs(hashA) % pool.length;
+  let idxB = Math.abs(hashB) % (pool.length - 1);
+  if (idxB >= idxA) idxB += 1; // ensure distinct
+  return { jokeA: pool[idxA], jokeB: pool[idxB] };
+}
+
+function loadDuel(dateStr) {
+  const stored = readJson(DUEL_FILE, null);
+  if (stored && stored.date === dateStr) return stored;
+  const { jokeA, jokeB } = duelPairForDate(dateStr);
+  const fresh = { date: dateStr, jokeIdA: jokeA.id, jokeIdB: jokeB.id, votesA: 0, votesB: 0, voters: [] };
+  writeJson(DUEL_FILE, fresh);
+  return fresh;
+}
+
+app.get('/api/duel/today', (req, res) => {
+  const today = todayStr();
+  const duel = loadDuel(today);
+  const jokes = allJokes();
+  const jokeA = jokes.find(j => j.id === duel.jokeIdA);
+  const jokeB = jokes.find(j => j.id === duel.jokeIdB);
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+  const hashedIp = crypto.createHash('sha256').update(ip).digest('hex');
+  const voted = duel.voters.includes(hashedIp);
+  res.json({ jokeA, jokeB, votesA: duel.votesA, votesB: duel.votesB, voted });
+});
+
+app.post('/api/duel/vote', (req, res) => {
+  const { pick } = req.body || {};
+  if (pick !== 'A' && pick !== 'B') return res.status(400).json({ error: 'pick must be "A" or "B"' });
+  const today = todayStr();
+  const duel = loadDuel(today);
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+  const hashedIp = crypto.createHash('sha256').update(ip).digest('hex');
+  if (duel.voters.includes(hashedIp)) return res.status(409).json({ error: 'Already voted today' });
+  if (pick === 'A') duel.votesA += 1; else duel.votesB += 1;
+  duel.voters.push(hashedIp);
+  writeJson(DUEL_FILE, duel);
+  const winner = duel.votesA > duel.votesB ? 'A' : duel.votesB > duel.votesA ? 'B' : null;
+  res.json({ votesA: duel.votesA, votesB: duel.votesB, winner });
+});
+
 module.exports = app;
 module.exports._resetCommentRateLimitForTest = _resetCommentRateLimitForTest;
 module.exports.sendDailyPush = sendDailyPush;
+module.exports._duelPairForDate = duelPairForDate;
+module.exports._loadDuel = loadDuel;
+module.exports._jokeForDate = jokeForDate;
