@@ -31,9 +31,11 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 - v24 — Joke Passport: UUID v4 token in localStorage, passports.json, save/favourite jokes, cross-device shareable /passport/:token URL; tracks votes, reactions, saves, streak per anonymous session [CID-20260803-AFA576FB]
 
+- v25 — "Today's Vibe" live reaction summary strip: auto-refreshing strip beneath the daily joke card showing net vote score, dominant emoji reaction, and comment count; polls GET /api/jokes/today/vibe every 30 s, pauses on hidden tab, animates changes [CID-20260803-0600F5CA]
+
 ## Proposed (in flight)
 
-- v25 — "Today's Vibe" live reaction summary: auto-refreshing strip beneath the daily joke card showing live vote score, dominant emoji reaction, and comment count; turns the solo daily visit into a felt shared moment without requiring any user action [CID-20260803-0600F5CA]
+_(none)_
 
 ## Rejected / Not pursuing
 
