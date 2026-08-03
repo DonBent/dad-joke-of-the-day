@@ -22,6 +22,7 @@ const PUSH_SUBS_FILE = process.env.PUSH_SUBS_FILE || path.join(__dirname, 'push-
 const DUEL_FILE = process.env.DUEL_FILE || path.join(__dirname, 'duel.json');
 const IMPORT_PENDING_FILE = process.env.IMPORT_PENDING_FILE || path.join(__dirname, 'import-pending.json');
 const PASSPORTS_FILE = process.env.PASSPORTS_FILE || path.join(__dirname, 'passports.json');
+const TRENDING_EVENTS_FILE = process.env.TRENDING_EVENTS_FILE || path.join(__dirname, 'trending-events.json');
 
 // UUID v4 validation regex
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -175,6 +176,7 @@ app.post('/api/jokes/:id/react', (req, res) => {
   reactions[id][reaction] = (reactions[id][reaction] || 0) + 1;
   reactorIndex[id][ip] = reaction;
   saveReactions();
+  appendTrendingEvent({ type: 'reaction', jokeId: parseInt(id), reaction, at: new Date().toISOString() });
   // Write to passport if token present
   const pToken = req.headers['x-passport-token'] || req.query.passport;
   if (pToken && UUID_V4_RE.test(pToken)) {
@@ -194,6 +196,7 @@ app.post('/api/joke/:id/upvote', (req, res) => {
   if (!allJokes().find(j => j.id === id)) return res.status(404).json({ error: 'Joke not found' });
   votes[id] = (votes[id] || 0) + 1;
   saveVotes();
+  appendTrendingEvent({ type: 'vote', jokeId: id, at: new Date().toISOString() });
   // Write to passport if token present
   const pToken = req.headers['x-passport-token'] || req.query.passport;
   if (pToken && UUID_V4_RE.test(pToken)) {
@@ -490,6 +493,74 @@ function passportSummary(p) {
   return summary;
 }
 
+// ── Trending Now (v27) ────────────────────────────────────────────────────
+const HALF_LIFE_HOURS = 2;
+const TRENDING_WINDOW_HOURS = 24;
+const TRENDING_VOTE_WEIGHT = 2;
+const TRENDING_REACTION_WEIGHT = 1;
+
+// Trending event log helpers (lazy-create)
+function readTrendingEvents() { return readJson(TRENDING_EVENTS_FILE, []); }
+function appendTrendingEvent(entry) {
+  const events = readTrendingEvents();
+  events.push(entry);
+  writeJson(TRENDING_EVENTS_FILE, events);
+}
+
+/**
+ * Pure function — compute time-decay trending score for a single joke.
+ * @param {number} jokeId
+ * @param {Array<{jokeId,at}>} voteEvents - vote event log entries
+ * @param {Array<{jokeId,at}>} reactionEvents - reaction event log entries
+ * @param {Date} now
+ * @param {number} windowHours - only events within this window are scored
+ * @returns {number}
+ */
+function computeTrendingScore(jokeId, voteEvents, reactionEvents, now, windowHours) {
+  const wh = windowHours != null ? windowHours : TRENDING_WINDOW_HOURS;
+  const lambda = Math.LN2 / HALF_LIFE_HOURS;
+  const nowMs = now instanceof Date ? now.getTime() : Number(now);
+  let score = 0;
+  for (const ev of voteEvents) {
+    if (ev.jokeId !== jokeId) continue;
+    const hoursAgo = (nowMs - new Date(ev.at).getTime()) / 3600000;
+    if (hoursAgo < 0 || hoursAgo > wh) continue;
+    score += TRENDING_VOTE_WEIGHT * Math.exp(-lambda * hoursAgo);
+  }
+  for (const ev of reactionEvents) {
+    if (ev.jokeId !== jokeId) continue;
+    const hoursAgo = (nowMs - new Date(ev.at).getTime()) / 3600000;
+    if (hoursAgo < 0 || hoursAgo > wh) continue;
+    score += TRENDING_REACTION_WEIGHT * Math.exp(-lambda * hoursAgo);
+  }
+  return score;
+}
+
+/**
+ * Return top-n jokes by trending score.
+ * Ties broken by jokeId ascending. Jokes with score=0 excluded.
+ */
+function getTrendingJokes(n, windowHours) {
+  const limit = n != null ? n : 5;
+  const wh = windowHours != null ? windowHours : TRENDING_WINDOW_HOURS;
+  const now = new Date();
+  const events = readTrendingEvents();
+  const voteEvents = events.filter(e => e.type === 'vote');
+  const reactionEvents = events.filter(e => e.type === 'reaction');
+  // Gather unique joke ids that have events in window
+  const nowMs = now.getTime();
+  const activeIds = new Set();
+  for (const ev of events) {
+    const hoursAgo = (nowMs - new Date(ev.at).getTime()) / 3600000;
+    if (hoursAgo >= 0 && hoursAgo <= wh) activeIds.add(ev.jokeId);
+  }
+  return Array.from(activeIds)
+    .map(id => ({ id, score: computeTrendingScore(id, voteEvents, reactionEvents, now, wh) }))
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score || a.id - b.id)
+    .slice(0, limit);
+}
+
 // Middleware: optional passport token validation
 function passportToken(req, res, next) {
   const token = req.headers['x-passport-token'] || req.query.passport;
@@ -543,7 +614,51 @@ app.get('/api/jokes/today/vibe', (req, res) => {
   res.json(result);
 });
 
-// GET /api/passport/:token
+// GET /api/jokes/trending (v27)
+app.get('/api/jokes/trending', (req, res) => {
+  let limit = parseInt(req.query.limit);
+  let window = parseInt(req.query.window);
+  if (isNaN(limit) || limit < 1) limit = 5;
+  if (limit > 10) limit = 10;
+  if (isNaN(window) || window < 1) window = TRENDING_WINDOW_HOURS;
+  if (window > 168) window = 168;
+
+  const ranked = getTrendingJokes(limit, window);
+  const jokes = allJokes();
+  const events = readTrendingEvents();
+  const nowMs = Date.now();
+
+  const result = ranked.map((item, idx) => {
+    const joke = jokes.find(j => j.id === item.id);
+    // vote count from events in window
+    const voteCount = events.filter(e => e.type === 'vote' && e.jokeId === item.id &&
+      (nowMs - new Date(e.at).getTime()) / 3600000 <= window).length;
+    // top reaction from events in window
+    const rxnCounts = {};
+    for (const e of events) {
+      if (e.type !== 'reaction' || e.jokeId !== item.id) continue;
+      if ((nowMs - new Date(e.at).getTime()) / 3600000 > window) continue;
+      rxnCounts[e.reaction] = (rxnCounts[e.reaction] || 0) + 1;
+    }
+    let topRxn = null, topRxnCount = 0;
+    for (const [k, v] of Object.entries(rxnCounts)) {
+      if (v > topRxnCount) { topRxnCount = v; topRxn = REACTION_EMOJIS[k] || k; }
+    }
+    return {
+      id: item.id,
+      joke: joke ? joke.joke : '',
+      category: joke ? joke.category : '',
+      score: Math.round(item.score * 100) / 100,
+      votes: voteCount,
+      topReaction: topRxn,
+      rank: idx + 1,
+    };
+  });
+
+  res.set('X-Trending-Window-Hours', String(window));
+  res.json(result);
+});
+
 app.get('/api/passport/:token', (req, res) => {
   const { token } = req.params;
   if (!UUID_V4_RE.test(token)) return res.status(400).json({ error: 'Invalid passport token format' });
@@ -970,3 +1085,9 @@ module.exports._loadDuel = loadDuel;
 module.exports._jokeForDate = jokeForDate;
 module.exports.computeBadges = computeBadges;
 module.exports.BADGE_DEFINITIONS = BADGE_DEFINITIONS;
+module.exports.computeTrendingScore = computeTrendingScore;
+module.exports.getTrendingJokes = getTrendingJokes;
+module.exports.HALF_LIFE_HOURS = HALF_LIFE_HOURS;
+module.exports.TRENDING_WINDOW_HOURS = TRENDING_WINDOW_HOURS;
+module.exports.TRENDING_EVENTS_FILE = TRENDING_EVENTS_FILE;
+module.exports._readTrendingEvents = readTrendingEvents;

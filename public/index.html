@@ -178,6 +178,25 @@
     .vibe-value { font-weight: 700; color: #ff6b35; font-size: 0.92rem; transition: opacity 0.3s; }
     .vibe-value.flash { opacity: 0.2; }
     @media (max-width: 400px) { .vibe-strip { gap: 10px; padding: 7px 10px; font-size: 0.82rem; } }
+    /* Trending Now (v27) */
+    .trending-panel { margin: 14px 0 4px; border: 1px solid #ffe0b2; border-radius: 10px; background: #fffbf5; overflow: hidden; }
+    .trending-panel.hidden { display: none; }
+    .trending-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; cursor: pointer; user-select: none; }
+    .trending-header-left { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.9rem; color: #b35c00; }
+    .trending-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #ff6b35; display: inline-block; animation: pulse 2s infinite; }
+    .trending-chevron { font-size: 0.75rem; color: #bbb; transition: transform 0.2s; }
+    .trending-panel.open .trending-chevron { transform: rotate(180deg); }
+    .trending-body { display: none; border-top: 1px solid #ffe0b2; padding: 4px 0; }
+    .trending-panel.open .trending-body { display: block; }
+    .trending-window-label { font-size: 0.75rem; color: #bbb; padding: 4px 14px 6px; text-transform: uppercase; letter-spacing: 0.3px; }
+    .trending-item { display: flex; align-items: center; gap: 10px; padding: 7px 14px; cursor: pointer; transition: background 0.15s; }
+    .trending-item:hover { background: #fff3e0; }
+    .trending-rank { font-size: 0.75rem; font-weight: 700; color: #ffb347; min-width: 16px; }
+    .trending-joke-text { flex: 1; font-size: 0.82rem; color: #444; }
+    .trending-flames { font-size: 0.78rem; }
+    .trending-rxn { font-size: 0.9rem; min-width: 20px; text-align: center; }
+    .trending-empty-msg { font-size: 0.82rem; color: #bbb; font-style: italic; padding: 10px 14px; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
     .roast-toggle {
       background: none; border: 2px dashed #ffd5bf; border-radius: 10px;
       color: #ff6b35; width: 100%; padding: 10px 16px; font-size: 0.93rem;
@@ -361,6 +380,22 @@
       </div>
       <div class="vibe-item">
         <span class="vibe-value" id="vibe-comment-count" data-testid="vibe-comment-count">&mdash;</span>
+      </div>
+    </div>
+    <!-- Trending Now panel (v27) -->
+    <div class="trending-panel hidden" id="trending-panel" data-testid="trending-panel">
+      <div class="trending-header" onclick="toggleTrendingPanel()">
+        <div class="trending-header-left">
+          <span class="trending-live-dot"></span>
+          🔥 Trending Now
+        </div>
+        <span class="trending-chevron">▼</span>
+      </div>
+      <div class="trending-body">
+        <div class="trending-window-label" id="trending-window-label" data-testid="trending-window-label">in the last 24 hours</div>
+        <div id="trending-list">
+          <div class="trending-empty-msg" id="trending-empty" data-testid="trending-empty">No groans yet today — be the first to vote!</div>
+        </div>
       </div>
     </div>
     <!-- Joke Duel panel (v21) -->
@@ -842,6 +877,101 @@
         }
       };
       startVibePolling();
+    });
+  })();
+  </script>
+
+  <!-- Trending Now JS (v27) -->
+  <script>
+  (function() {
+    const TRENDING_POLL_INTERVAL_MS = 60000;
+    let _trendingTimer = null;
+
+    function trendingPanelIsOpen() {
+      try { return localStorage.getItem('trending_panel_open') === 'true'; } catch { return false; }
+    }
+    function saveTrendingPanelState(open) {
+      try { localStorage.setItem('trending_panel_open', open ? 'true' : 'false'); } catch {} 
+    }
+
+    window.toggleTrendingPanel = function() {
+      const panel = document.getElementById('trending-panel');
+      if (!panel) return;
+      const isOpen = panel.classList.contains('open');
+      panel.classList.toggle('open', !isOpen);
+      saveTrendingPanelState(!isOpen);
+    };
+
+    function flameBar(score, maxScore) {
+      if (!maxScore || !score) return '';
+      const flames = Math.max(1, Math.round((score / maxScore) * 5));
+      return '🔥'.repeat(flames);
+    }
+
+    async function fetchTrending() {
+      try {
+        const res = await fetch('/api/jokes/trending');
+        if (!res.ok) return;
+        const items = await res.json();
+        const windowHours = res.headers.get('X-Trending-Window-Hours') || '24';
+        const panel = document.getElementById('trending-panel');
+        const list = document.getElementById('trending-list');
+        const windowLabel = document.getElementById('trending-window-label');
+        if (!panel || !list) return;
+        if (windowLabel) windowLabel.textContent = `in the last ${windowHours} hour${windowHours === '1' ? '' : 's'}`;
+        if (items.length === 0) {
+          list.innerHTML = '<div class="trending-empty-msg" id="trending-empty" data-testid="trending-empty">No groans yet today — be the first to vote!</div>';
+          return;
+        }
+        const maxScore = items[0].score;
+        list.innerHTML = items.map(item => {
+          const text = item.joke.length > 80 ? item.joke.slice(0, 77) + '…' : item.joke;
+          const flames = flameBar(item.score, maxScore);
+          const rxn = item.topReaction || '';
+          return `<div class="trending-item" data-testid="trending-item-${item.rank}" onclick="location.hash='joke-${item.id}'">
+            <span class="trending-rank">#${item.rank}</span>
+            <span class="trending-joke-text">${text}</span>
+            <span class="trending-flames">${flames}</span>
+            <span class="trending-rxn">${rxn}</span>
+          </div>`;
+        }).join('');
+      } catch(e) {}
+    }
+
+    function startTrendingPolling() {
+      fetchTrending();
+      if (!_trendingTimer) _trendingTimer = setInterval(() => {
+        if (document.visibilityState !== 'hidden') fetchTrending();
+      }, TRENDING_POLL_INTERVAL_MS);
+    }
+
+    function stopTrendingPolling() {
+      if (_trendingTimer) { clearInterval(_trendingTimer); _trendingTimer = null; }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') fetchTrending();
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Restore open/closed state
+      const panel = document.getElementById('trending-panel');
+      if (panel && trendingPanelIsOpen()) panel.classList.add('open');
+
+      const origSwitch2 = window.switchTab;
+      window.switchTab = function(tab) {
+        if (typeof origSwitch2 === 'function') origSwitch2(tab);
+        const tp = document.getElementById('trending-panel');
+        if (!tp) return;
+        if (tab === 'today') {
+          tp.classList.remove('hidden');
+          startTrendingPolling();
+        } else {
+          tp.classList.add('hidden');
+          stopTrendingPolling();
+        }
+      };
+      startTrendingPolling();
     });
   })();
   </script>
