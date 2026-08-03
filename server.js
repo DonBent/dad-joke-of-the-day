@@ -21,6 +21,10 @@ const COMMENTS_FILE = process.env.COMMENTS_FILE || path.join(__dirname, 'comment
 const PUSH_SUBS_FILE = process.env.PUSH_SUBS_FILE || path.join(__dirname, 'push-subscriptions.json');
 const DUEL_FILE = process.env.DUEL_FILE || path.join(__dirname, 'duel.json');
 const IMPORT_PENDING_FILE = process.env.IMPORT_PENDING_FILE || path.join(__dirname, 'import-pending.json');
+const PASSPORTS_FILE = process.env.PASSPORTS_FILE || path.join(__dirname, 'passports.json');
+
+// UUID v4 validation regex
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // ── VAPID / Web Push setup ───────────────────────────────────────────────────
 const VAPID_PUBLIC_KEY  = process.env.VAPID_PUBLIC_KEY  || '';
@@ -171,6 +175,17 @@ app.post('/api/jokes/:id/react', (req, res) => {
   reactions[id][reaction] = (reactions[id][reaction] || 0) + 1;
   reactorIndex[id][ip] = reaction;
   saveReactions();
+  // Write to passport if token present
+  const pToken = req.headers['x-passport-token'] || req.query.passport;
+  if (pToken && UUID_V4_RE.test(pToken)) {
+    const passports = readPassports();
+    const p = ensurePassport(passports, pToken);
+    p.reactions = p.reactions.filter(r => r.jokeId !== parseInt(id));
+    if (reactorIndex[id][ip]) {
+      p.reactions.push({ jokeId: parseInt(id), emoji: reaction, at: new Date().toISOString() });
+    }
+    savePassports(passports);
+  }
   res.json({ id: parseInt(id), reactions: reactions[id], userReaction: reaction });
 });
 
@@ -179,6 +194,16 @@ app.post('/api/joke/:id/upvote', (req, res) => {
   if (!allJokes().find(j => j.id === id)) return res.status(404).json({ error: 'Joke not found' });
   votes[id] = (votes[id] || 0) + 1;
   saveVotes();
+  // Write to passport if token present
+  const pToken = req.headers['x-passport-token'] || req.query.passport;
+  if (pToken && UUID_V4_RE.test(pToken)) {
+    const passports = readPassports();
+    const p = ensurePassport(passports, pToken);
+    if (!p.votes.find(v => v.jokeId === id)) {
+      p.votes.push({ jokeId: id, direction: 'up', at: new Date().toISOString() });
+    }
+    savePassports(passports);
+  }
   res.json({ id, votes: votes[id] });
 });
 
@@ -375,7 +400,16 @@ app.get('/api/joke', (req, res) => {
 app.get('/api/joke/:id', (req, res) => {
   const joke = allJokes().find(j => j.id === parseInt(req.params.id));
   if (!joke) return res.status(404).json({ error: 'Joke not found' });
-  res.json(jokeWithVotes(joke));
+  const token = req.headers['x-passport-token'] || req.query.passport;
+  const base = jokeWithVotes(joke);
+  if (token && UUID_V4_RE.test(token)) {
+    const passports = readJson(PASSPORTS_FILE, {});
+    const p = passports[token];
+    base.userVote = p ? (p.votes.find(v => v.jokeId === joke.id) || null) : null;
+    base.userReaction = p ? (p.reactions.find(r => r.jokeId === joke.id) ? p.reactions.find(r => r.jokeId === joke.id).emoji : null) : null;
+    base.userSaved = p ? p.saves.some(s => s.jokeId === joke.id) : false;
+  }
+  res.json(base);
 });
 
 // Submit a joke
@@ -395,6 +429,83 @@ app.post('/api/submit', (req, res) => {
   subs.push(sub);
   writeJson(SUBMISSIONS_FILE, subs);
   res.status(201).json({ message: 'Submitted! Your joke will appear after moderation.', sid: sub.sid });
+});
+
+// ── Passport helpers ────────────────────────────────────────────────────────
+function readPassports() { return readJson(PASSPORTS_FILE, {}); }
+function savePassports(data) { writeJson(PASSPORTS_FILE, data); }
+
+function ensurePassport(passports, token) {
+  if (!passports[token]) {
+    passports[token] = {
+      token,
+      createdAt: new Date().toISOString(),
+      streak: 0,
+      votes: [],
+      reactions: [],
+      saves: []
+    };
+  }
+  return passports[token];
+}
+
+function passportSummary(p) {
+  return {
+    token: p.token,
+    createdAt: p.createdAt,
+    streak: p.streak || 0,
+    votes: p.votes,
+    reactions: p.reactions,
+    saves: p.saves,
+    totalVotes: p.votes.length,
+    totalReactions: p.reactions.length,
+    totalSaves: p.saves.length
+  };
+}
+
+// Middleware: optional passport token validation
+function passportToken(req, res, next) {
+  const token = req.headers['x-passport-token'] || req.query.passport;
+  if (token) {
+    if (!UUID_V4_RE.test(token)) return res.status(400).json({ error: 'Invalid passport token format' });
+    req.passportToken = token;
+  }
+  next();
+}
+
+// GET /api/passport/:token
+app.get('/api/passport/:token', (req, res) => {
+  const { token } = req.params;
+  if (!UUID_V4_RE.test(token)) return res.status(400).json({ error: 'Invalid passport token format' });
+  const passports = readPassports();
+  if (!passports[token]) return res.status(404).json({ error: 'Passport not found' });
+  res.json(passportSummary(passports[token]));
+});
+
+// POST /api/passport/:token/saves/:jokeId — toggle save
+app.post('/api/passport/:token/saves/:jokeId', (req, res) => {
+  const { token } = req.params;
+  const jokeId = parseInt(req.params.jokeId);
+  if (!UUID_V4_RE.test(token)) return res.status(400).json({ error: 'Invalid passport token format' });
+  if (!allJokes().find(j => j.id === jokeId)) return res.status(404).json({ error: 'Joke not found' });
+  const passports = readPassports();
+  const p = ensurePassport(passports, token);
+  const idx = p.saves.findIndex(s => s.jokeId === jokeId);
+  let saved;
+  if (idx >= 0) {
+    p.saves.splice(idx, 1);
+    saved = false;
+  } else {
+    p.saves.push({ jokeId, at: new Date().toISOString() });
+    saved = true;
+  }
+  savePassports(passports);
+  res.json({ token, jokeId, saved, totalSaves: p.saves.length });
+});
+
+// Serve /passport/:token — client-side import page
+app.get('/passport/:token', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ── Comments (v19 — Roast the Joke) ────────────────────────────────────────
@@ -770,6 +881,10 @@ app.post('/api/duel/vote', (req, res) => {
 
 module.exports = app;
 module.exports._resetCommentRateLimitForTest = _resetCommentRateLimitForTest;
+module.exports._readPassports = readPassports;
+module.exports._savePassports = savePassports;
+module.exports._ensurePassport = ensurePassport;
+module.exports.PASSPORTS_FILE = PASSPORTS_FILE;
 module.exports.sendDailyPush = sendDailyPush;
 module.exports._duelPairForDate = duelPairForDate;
 module.exports._loadDuel = loadDuel;

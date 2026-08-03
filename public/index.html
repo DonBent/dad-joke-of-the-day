@@ -196,10 +196,93 @@
     .roast-msg { margin-top: 6px; font-size: 0.83rem; min-height: 18px; }
     .roast-msg.ok { color: #2a9d6f; }
     .roast-msg.err { color: #c00; }
+    /* Joke Passport (v24) */
+    #passport-btn {
+      position: fixed; top: 14px; right: 14px; z-index: 900;
+      background: #fff3ec; color: #ff6b35; border: 2px solid #ffd5bf;
+      border-radius: 24px; padding: 7px 16px; font-size: 0.9rem;
+      font-family: inherit; font-weight: 700; cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.2s;
+    }
+    #passport-btn:hover { background: #ff6b35; color: white; border-color: #ff6b35; }
+    .passport-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+      z-index: 1000; transition: opacity 0.2s;
+    }
+    .passport-overlay.open { display: block; }
+    .passport-panel {
+      position: fixed; top: 0; right: -380px; width: 360px; max-width: 96vw;
+      height: 100vh; background: white; box-shadow: -4px 0 24px rgba(0,0,0,0.15);
+      z-index: 1001; display: flex; flex-direction: column;
+      transition: right 0.28s cubic-bezier(0.4,0,0.2,1);
+      border-radius: 16px 0 0 16px; overflow: hidden;
+    }
+    .passport-panel.open { right: 0; }
+    .passport-header {
+      background: #ff6b35; color: white; padding: 18px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .passport-header h2 { font-size: 1.1rem; margin: 0; }
+    .passport-close {
+      background: none; border: none; color: white; font-size: 1.4rem;
+      cursor: pointer; line-height: 1; padding: 0 4px;
+    }
+    .passport-body { flex: 1; overflow-y: auto; padding: 20px; }
+    .passport-stats {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;
+    }
+    .passport-stat {
+      background: #fff8f3; border-radius: 10px; padding: 12px;
+      text-align: center; border: 1px solid #ffecd2;
+    }
+    .passport-stat .stat-value { font-size: 1.6rem; font-weight: 700; color: #ff6b35; }
+    .passport-stat .stat-label { font-size: 0.75rem; color: #999; margin-top: 2px; }
+    .passport-saves-title { font-size: 0.9rem; font-weight: 700; color: #555; margin-bottom: 10px; }
+    .passport-saved-item {
+      background: #fafafa; border-radius: 8px; padding: 10px 12px;
+      margin-bottom: 8px; border-left: 3px solid #ffd5bf;
+      font-size: 0.88rem; color: #444; line-height: 1.45;
+    }
+    .passport-empty { color: #bbb; font-size: 0.88rem; text-align: center; padding: 16px 0; }
+    .passport-footer { padding: 14px 20px; border-top: 1px solid #f0f0f0; }
+    #share-passport-btn {
+      width: 100%; background: #f5f5f5; color: #555; border: none;
+      border-radius: 8px; padding: 11px 16px; font-size: 0.92rem;
+      font-family: inherit; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    #share-passport-btn:hover { background: #e8e8e8; }
+    #share-passport-btn.copied { background: #d4f5d4; color: #2a7a2a; }
+    /* Save joke button */
+    .save-joke-btn {
+      background: #f9f9f9; border: 2px solid #eee; border-radius: 20px;
+      padding: 4px 14px; font-size: 0.85rem; color: #888;
+      cursor: pointer; transition: all 0.2s; font-family: inherit;
+    }
+    .save-joke-btn:hover { border-color: #ff6b35; color: #ff6b35; background: #fff3ec; }
+    .save-joke-btn.saved { background: #fff3ec; color: #ff6b35; border-color: #ff6b35; }
+    /* Import confirm banner */
+    #passport-import-bar {
+      display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: white; border-radius: 12px; padding: 14px 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.18); z-index: 2000;
+      max-width: 420px; width: 92vw; text-align: center;
+    }
+    #passport-import-bar p { font-size: 0.9rem; color: #444; margin-bottom: 12px; }
+    #passport-import-bar .import-actions { display: flex; gap: 10px; justify-content: center; }
+    #passport-import-bar .import-confirm-btn {
+      background: #ff6b35; color: white; border: none; border-radius: 8px;
+      padding: 9px 20px; font-size: 0.88rem; cursor: pointer; font-family: inherit; font-weight: 600;
+    }
+    #passport-import-bar .import-cancel-btn {
+      background: #f0f0f0; color: #555; border: none; border-radius: 8px;
+      padding: 9px 20px; font-size: 0.88rem; cursor: pointer; font-family: inherit;
+    }
   </style>
 </head>
 <body>
   <div class="card">
+    <!-- Passport button (v24) -->
+    <button id="passport-btn" onclick="openPassport()" title="Your Joke Passport">🪪 Passport</button>
     <div class="emoji">😄</div>
     <h1>Dad Joke of the Day</h1>
     <div class="tabs">
@@ -217,6 +300,7 @@
     <div class="meta-row">
       <div id="joke-badge" class="badge">—</div>
       <button class="upvote-btn" id="upvote-btn" onclick="upvote()">👍 <span id="vote-count">0</span></button>
+      <button class="save-joke-btn" id="save-joke-btn" data-testid="save-joke-button" onclick="toggleSaveJoke()" style="visibility:hidden">🔖 Save</button>
     </div>
     <div class="reaction-bar" id="reaction-bar" role="group" aria-label="Joke reactions">
       <button class="reaction-btn" id="reaction-btn-laugh" data-testid="reaction-btn-laugh" data-reaction="laugh" aria-label="Laugh reaction" aria-pressed="false" onclick="reactToJoke('laugh')">😂 <span class="reaction-count" id="reaction-count-laugh">0</span></button>
@@ -325,6 +409,37 @@
     </div>
   </div>
 
+  <!-- Passport overlay + panel (v24) -->
+  <div class="passport-overlay" id="passport-overlay" onclick="closePassport()"></div>
+  <div class="passport-panel" id="passport-panel" data-testid="passport-panel" role="dialog" aria-label="Joke Passport" aria-modal="true">
+    <div class="passport-header">
+      <h2>🪪 Joke Passport</h2>
+      <button class="passport-close" onclick="closePassport()" aria-label="Close passport">✕</button>
+    </div>
+    <div class="passport-body" id="passport-body">
+      <div class="passport-stats">
+        <div class="passport-stat"><div class="stat-value" id="pstat-streak">—</div><div class="stat-label">🔥 Streak</div></div>
+        <div class="passport-stat"><div class="stat-value" id="pstat-votes">—</div><div class="stat-label">👍 Votes</div></div>
+        <div class="passport-stat"><div class="stat-value" id="pstat-reactions">—</div><div class="stat-label">😂 Reactions</div></div>
+        <div class="passport-stat"><div class="stat-value" id="pstat-saves">—</div><div class="stat-label">🔖 Saved</div></div>
+      </div>
+      <div class="passport-saves-title">Saved Jokes</div>
+      <div id="passport-saves-list"><div class="passport-empty">No saved jokes yet.</div></div>
+    </div>
+    <div class="passport-footer">
+      <button id="share-passport-btn" data-testid="share-passport-button" onclick="sharePassport()">🔗 Share my Passport</button>
+    </div>
+  </div>
+
+  <!-- Passport import confirm banner (v24) -->
+  <div id="passport-import-bar">
+    <p>Import this Passport? Your current history will be replaced.</p>
+    <div class="import-actions">
+      <button class="import-confirm-btn" data-testid="passport-import-confirm" onclick="confirmPassportImport()">✅ Import</button>
+      <button class="import-cancel-btn" onclick="cancelPassportImport()">Cancel</button>
+    </div>
+  </div>
+
   <script>
     let currentTab = 'today';
     let currentJokeId = null;
@@ -349,6 +464,11 @@
       document.getElementById('upvote-btn').style.visibility = 'visible';
       document.getElementById('upvote-btn').classList.remove('voted');
       document.getElementById('vote-count').textContent = data.votes || 0;
+      // Save button (v24)
+      const saveBtn = document.getElementById('save-joke-btn');
+      saveBtn.style.visibility = 'visible';
+      saveBtn.classList.toggle('saved', !!data.userSaved);
+      saveBtn.textContent = data.userSaved ? '🔖 Saved' : '🔖 Save';
       currentJokeId = data.id;
       // Render reactions
       const bar = document.getElementById('reaction-bar');
@@ -387,7 +507,7 @@
       try {
         const res = await fetch(`/api/jokes/${currentJokeId}/react`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(passportGetToken() ? { 'X-Passport-Token': passportGetToken() } : {}) },
           body: JSON.stringify({ reaction })
         });
         const data = await res.json();
@@ -410,7 +530,10 @@
 
     async function upvote() {
       if (!currentJokeId) return;
-      const res = await fetch(`/api/joke/${currentJokeId}/upvote`, { method: 'POST' });
+      const headers = { 'Content-Type': 'application/json' };
+      const pt = passportGetToken();
+      if (pt) headers['X-Passport-Token'] = pt;
+      const res = await fetch(`/api/joke/${currentJokeId}/upvote`, { method: 'POST', headers });
       const data = await res.json();
       document.getElementById('vote-count').textContent = data.votes;
       document.getElementById('upvote-btn').classList.add('voted');
@@ -430,6 +553,7 @@
       el.className = 'loading'; el.textContent = 'Loading a joke...';
       document.getElementById('joke-badge').style.visibility = 'hidden';
       document.getElementById('upvote-btn').style.visibility = 'hidden';
+      document.getElementById('save-joke-btn').style.visibility = 'hidden';
       document.getElementById('reaction-bar').style.visibility = 'hidden';
       document.getElementById('joke-date').style.visibility = 'hidden';
       const category = document.getElementById('category-select').value;
@@ -577,6 +701,7 @@
     }
 
     async function init() {
+      passportInit();
       await loadCategories();
       const hash = window.location.hash;
       const match = hash.match(/^#joke-(\d+)$/);
@@ -589,7 +714,149 @@
     init();
   </script>
 
-  <!-- Roast the Joke JS (v19) -->
+  <!-- Joke Passport JS (v24) -->
+  <script>
+  (function() {
+    const LS_KEY = 'passport_token';
+    let _pendingImportToken = null;
+
+    function passportGenToken() {
+      // UUID v4 generator
+      return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+      );
+    }
+
+    window.passportGetToken = function() {
+      return localStorage.getItem(LS_KEY);
+    };
+
+    window.passportInit = function() {
+      // Check if current URL is /passport/<token>
+      const m = window.location.pathname.match(/^\/passport\/([\w-]+)$/);
+      if (m) {
+        const importToken = m[1];
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (!UUID_RE.test(importToken)) return;
+        const current = localStorage.getItem(LS_KEY);
+        if (!current) {
+          // No existing token — just store it directly
+          localStorage.setItem(LS_KEY, importToken);
+          history.replaceState(null, '', '/');
+        } else if (current !== importToken) {
+          // Different token — prompt import
+          _pendingImportToken = importToken;
+          document.getElementById('passport-import-bar').style.display = 'block';
+        } else {
+          history.replaceState(null, '', '/');
+        }
+        return;
+      }
+      // Normal init: ensure token exists
+      if (!localStorage.getItem(LS_KEY)) {
+        localStorage.setItem(LS_KEY, passportGenToken());
+      }
+    };
+
+    window.confirmPassportImport = function() {
+      if (_pendingImportToken) {
+        localStorage.setItem(LS_KEY, _pendingImportToken);
+        _pendingImportToken = null;
+        window.location.href = '/';
+      }
+    };
+
+    window.cancelPassportImport = function() {
+      _pendingImportToken = null;
+      document.getElementById('passport-import-bar').style.display = 'none';
+      history.replaceState(null, '', '/');
+    };
+
+    window.openPassport = async function() {
+      document.getElementById('passport-overlay').classList.add('open');
+      document.getElementById('passport-panel').classList.add('open');
+      await refreshPassportPanel();
+    };
+
+    window.closePassport = function() {
+      document.getElementById('passport-overlay').classList.remove('open');
+      document.getElementById('passport-panel').classList.remove('open');
+    };
+
+    async function refreshPassportPanel() {
+      const token = passportGetToken();
+      if (!token) return;
+      try {
+        const res = await fetch(`/api/passport/${token}`);
+        if (res.status === 404) {
+          // Token never written — show zeros
+          document.getElementById('pstat-streak').textContent = '0';
+          document.getElementById('pstat-votes').textContent = '0';
+          document.getElementById('pstat-reactions').textContent = '0';
+          document.getElementById('pstat-saves').textContent = '0';
+          document.getElementById('passport-saves-list').innerHTML = '<div class="passport-empty">No saved jokes yet.</div>';
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById('pstat-streak').textContent = data.streak || 0;
+        document.getElementById('pstat-votes').textContent = data.totalVotes;
+        document.getElementById('pstat-reactions').textContent = data.totalReactions;
+        document.getElementById('pstat-saves').textContent = data.totalSaves;
+        if (data.saves.length === 0) {
+          document.getElementById('passport-saves-list').innerHTML = '<div class="passport-empty">No saved jokes yet.</div>';
+        } else {
+          // Fetch joke texts in parallel (up to 20)
+          const recent = data.saves.slice(-20).reverse();
+          const jokes = await Promise.all(
+            recent.map(s => fetch(`/api/joke/${s.jokeId}`).then(r => r.json()).catch(() => null))
+          );
+          document.getElementById('passport-saves-list').innerHTML = jokes
+            .filter(Boolean)
+            .map(j => `<div class="passport-saved-item">${j.joke}</div>`)
+            .join('');
+        }
+      } catch(e) {}
+    }
+
+    window.toggleSaveJoke = async function() {
+      if (!window.currentJokeId) return;
+      const token = passportGetToken();
+      if (!token) return;
+      const btn = document.getElementById('save-joke-btn');
+      // Optimistic
+      const wasSaved = btn.classList.contains('saved');
+      btn.classList.toggle('saved', !wasSaved);
+      btn.textContent = wasSaved ? '\uD83D\uDD16 Save' : '\uD83D\uDD16 Saved';
+      try {
+        const res = await fetch(`/api/passport/${token}/saves/${window.currentJokeId}`, {
+          method: 'POST',
+          headers: { 'X-Passport-Token': token }
+        });
+        if (!res.ok) throw new Error('save failed');
+        const data = await res.json();
+        btn.classList.toggle('saved', data.saved);
+        btn.textContent = data.saved ? '\uD83D\uDD16 Saved' : '\uD83D\uDD16 Save';
+      } catch(e) {
+        // Revert optimistic update
+        btn.classList.toggle('saved', wasSaved);
+        btn.textContent = wasSaved ? '\uD83D\uDD16 Saved' : '\uD83D\uDD16 Save';
+      }
+    };
+
+    window.sharePassport = function() {
+      const token = passportGetToken();
+      if (!token) return;
+      const url = `${window.location.origin}/passport/${token}`;
+      navigator.clipboard.writeText(url).then(() => {
+        const btn = document.getElementById('share-passport-btn');
+        btn.textContent = '\u2705 Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = '\uD83D\uDD17 Share my Passport'; btn.classList.remove('copied'); }, 2000);
+      }).catch(() => prompt('Share this link:', url));
+    };
+  })();
+  </script>
   <script>
   (function() {
     let roastJokeId = null;
