@@ -197,6 +197,22 @@
     .trending-rxn { font-size: 0.9rem; min-width: 20px; text-align: center; }
     .trending-empty-msg { font-size: 0.82rem; color: #bbb; font-style: italic; padding: 10px 14px; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    /* For You tab (v28) */
+    .for-you-section { display: none; padding: 4px 0 16px; }
+    .for-you-section.active { display: block; }
+    .for-you-no-passport { font-size: 0.9rem; color: #aaa; text-align: center; padding: 32px 16px; line-height: 1.5; }
+    .for-you-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .for-you-hint { font-size: 0.8rem; color: #bbb; font-style: italic; margin-bottom: 8px; padding: 6px 10px; background: #fff8ec; border-radius: 8px; }
+    .for-you-card { background: #fff; border: 1px solid #f0e6d0; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+    .for-you-card-label { font-size: 0.72rem; color: #ffb347; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
+    .for-you-card-text { font-size: 0.92rem; color: #333; margin-bottom: 8px; line-height: 1.45; }
+    .for-you-card-footer { display: flex; align-items: center; justify-content: space-between; }
+    .for-you-cat-badge { background: #fff3e0; color: #e07b00; border-radius: 6px; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; }
+    .for-you-save-btn { background: none; border: 1.5px solid #ffd5bf; border-radius: 7px; font-size: 0.8rem; cursor: pointer; padding: 3px 10px; color: #ff6b35; transition: background 0.15s; }
+    .for-you-save-btn:hover { background: #fff3e0; }
+    .for-you-footer { font-size: 0.75rem; color: #ccc; text-align: center; margin-top: 6px; }
+    .for-you-refresh-btn { background: none; border: 1.5px solid #ffe0b2; border-radius: 8px; padding: 5px 14px; font-size: 0.82rem; font-family: inherit; color: #b35c00; cursor: pointer; transition: background 0.15s; }
+    .for-you-refresh-btn:hover { background: #fff3e0; }
     .roast-toggle {
       background: none; border: 2px dashed #ffd5bf; border-radius: 10px;
       color: #ff6b35; width: 100%; padding: 10px 16px; font-size: 0.93rem;
@@ -330,6 +346,7 @@
     <div class="tabs">
       <div class="tab active" id="tab-today" onclick="switchTab('today')">📅 Today's Joke</div>
       <div class="tab" id="tab-random" onclick="switchTab('random')">🎲 Random</div>
+      <div class="tab" id="tab-for-you" data-testid="for-you-tab" onclick="switchTab('for-you')">✨ For You</div>
       <a class="tab" id="tab-hof" href="/hall-of-fame" data-testid="nav-hall-of-fame">🏆 Hall of Fame</a>
     </div>
     <div id="random-controls" style="display:none" class="category-filter">
@@ -478,6 +495,21 @@
     <div class="archive" id="archive-section">
       <h2>📖 Last 7 Days</h2>
       <div id="archive-list"></div>
+    </div>
+  </div>
+
+  <!-- For You section (v28) -->
+  <div class="for-you-section" id="for-you-section">
+    <div class="for-you-no-passport" id="for-you-no-passport" data-testid="for-you-no-passport" style="display:none">
+      Start voting and saving jokes to unlock your personal feed 🔖
+    </div>
+    <div id="for-you-main" style="display:none">
+      <div class="for-you-header">
+        <button class="for-you-refresh-btn" id="for-you-refresh" data-testid="for-you-refresh" onclick="loadForYou()">&#x21bb; Refresh</button>
+      </div>
+      <div class="for-you-hint" id="for-you-fallback-hint" data-testid="for-you-fallback-hint" style="display:none">Keep voting to personalise your feed 🗳️</div>
+      <div id="for-you-list"></div>
+      <div class="for-you-footer" id="for-you-unrated-count" data-testid="for-you-unrated-count"></div>
     </div>
   </div>
 
@@ -674,10 +706,15 @@
       currentTab = tab;
       document.getElementById('tab-today').className = 'tab' + (tab === 'today' ? ' active' : '');
       document.getElementById('tab-random').className = 'tab' + (tab === 'random' ? ' active' : '');
+      const forYouTabEl = document.getElementById('tab-for-you');
+      if (forYouTabEl) forYouTabEl.className = 'tab' + (tab === 'for-you' ? ' active' : '');
       document.getElementById('random-controls').style.display = tab === 'random' ? 'block' : 'none';
+      document.getElementById('action-btn').style.display = tab === 'for-you' ? 'none' : '';
       document.getElementById('action-btn').textContent = tab === 'today' ? "↻ Reload today's joke" : 'Another one! 👴';
       document.getElementById('archive-section').style.display = tab === 'today' ? 'block' : 'none';
-      if (tab === 'today') { fetchToday(); loadArchive(); } else fetchRandom();
+      const forYouSec = document.getElementById('for-you-section');
+      if (forYouSec) forYouSec.classList.toggle('active', tab === 'for-you');
+      if (tab === 'today') { fetchToday(); loadArchive(); } else if (tab === 'random') fetchRandom();
     }
 
     function onAction() { if (currentTab === 'today') fetchToday(); else fetchRandom(); }
@@ -972,6 +1009,75 @@
         }
       };
       startTrendingPolling();
+    });
+  })();
+  </script>
+
+  <!-- For You JS (v28) -->
+  <script>
+  (function() {
+    function getPassportToken() {
+      try { return localStorage.getItem('passport_token'); } catch { return null; }
+    }
+
+    window.loadForYou = async function() {
+      const token = getPassportToken();
+      const noPassportEl = document.getElementById('for-you-no-passport');
+      const mainEl = document.getElementById('for-you-main');
+      if (!token) {
+        if (noPassportEl) noPassportEl.style.display = '';
+        if (mainEl) mainEl.style.display = 'none';
+        return;
+      }
+      if (noPassportEl) noPassportEl.style.display = 'none';
+      if (mainEl) mainEl.style.display = '';
+      try {
+        const res = await fetch(`/api/passport/${encodeURIComponent(token)}/recommendations`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = document.getElementById('for-you-list');
+        const hint = document.getElementById('for-you-fallback-hint');
+        const footer = document.getElementById('for-you-unrated-count');
+        if (hint) hint.style.display = data.strategy === 'fallback' ? '' : 'none';
+        if (footer) footer.textContent = data.totalUnrated > 0 ? `${data.totalUnrated} jokes you haven't rated yet` : '';
+        if (!list) return;
+        if (!data.recommendations || data.recommendations.length === 0) {
+          list.innerHTML = '<div style="color:#ccc;font-style:italic;font-size:0.85rem;padding:16px 0">No recommendations yet.</div>';
+          return;
+        }
+        list.innerHTML = data.recommendations.map(item => {
+          const label = data.strategy === 'affinity' ? '✨ picked for you' : '🎲 random pick';
+          return `<div class="for-you-card" data-testid="for-you-item-${item.rank}">
+            <div class="for-you-card-label">${label}</div>
+            <div class="for-you-card-text">${item.joke}</div>
+            <div class="for-you-card-footer">
+              <span class="for-you-cat-badge">${item.category || ''}</span>
+              <button class="for-you-save-btn" onclick="forYouSave(${item.id}, this)">🔖 Save</button>
+            </div>
+          </div>`;
+        }).join('');
+      } catch(e) {}
+    };
+
+    window.forYouSave = async function(jokeId, btn) {
+      const token = getPassportToken();
+      if (!token) return;
+      try {
+        const res = await fetch(`/api/passport/${encodeURIComponent(token)}/saves/${jokeId}`, { method: 'POST' });
+        if (res.ok) { const d = await res.json(); if (btn) btn.textContent = d.saved ? '🔖 Saved' : '🔖 Save'; }
+      } catch(e) {}
+    };
+
+    // Hook into switchTab
+    document.addEventListener('DOMContentLoaded', () => {
+      const origSwitch3 = window.switchTab;
+      window.switchTab = function(tab) {
+        if (typeof origSwitch3 === 'function') origSwitch3(tab);
+        const sec = document.getElementById('for-you-section');
+        const tabEl = document.getElementById('tab-for-you');
+        if (sec) sec.classList.toggle('active', tab === 'for-you');
+        if (tab === 'for-you') loadForYou();
+      };
     });
   })();
   </script>

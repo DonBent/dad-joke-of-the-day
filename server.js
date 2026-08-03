@@ -1073,6 +1073,121 @@ app.post('/api/duel/vote', (req, res) => {
   res.json({ votesA: duel.votesA, votesB: duel.votesB, winner });
 });
 
+// ── For You — Personalised Recommendations (v28) ──────────────────────
+
+/**
+ * Pure function — build a {category: affinityScore} map from passport history.
+ * Scores: upvote=+2, save=+1.5, reaction=+1, downvote=-1 (floor 0).
+ * Normalised to 0–1 range.
+ */
+function computeCategoryAffinity(passport, allJokes) {
+  const catScore = {};
+  const jokeMap = {};
+  for (const j of allJokes) jokeMap[j.id] = j;
+
+  const addScore = (jokeId, delta) => {
+    const j = jokeMap[jokeId];
+    if (!j) return;
+    const cat = j.category;
+    catScore[cat] = (catScore[cat] || 0) + delta;
+    if (catScore[cat] < 0) catScore[cat] = 0;
+  };
+
+  for (const v of (passport.votes || [])) {
+    if (v.direction === 'down') addScore(v.jokeId, -1);
+    else addScore(v.jokeId, 2);
+  }
+  for (const s of (passport.saves || [])) addScore(s.jokeId, 1.5);
+  for (const r of (passport.reactions || [])) addScore(r.jokeId, 1);
+
+  const maxScore = Math.max(0, ...Object.values(catScore));
+  if (maxScore === 0) return catScore;
+  for (const cat of Object.keys(catScore)) catScore[cat] /= maxScore;
+  return catScore;
+}
+
+/**
+ * Pure function — return top-n unrated jokes ranked by category affinity.
+ * Returns [] if totalInteractions < 3 (signals fallback).
+ * Ties broken by global vote count descending.
+ */
+function getRecommendations(passport, allJokes, n) {
+  const limit = n != null ? n : 10;
+  const totalVotes = Array.isArray(passport.votes) ? passport.votes.length : (passport.totalVotes || 0);
+  const totalSaves = Array.isArray(passport.saves) ? passport.saves.length : (passport.totalSaves || 0);
+  const totalReactions = Array.isArray(passport.reactions) ? passport.reactions.length : (passport.totalReactions || 0);
+  if (totalVotes + totalSaves + totalReactions < 3) return [];
+
+  // Build already-rated set
+  const rated = new Set();
+  for (const v of (passport.votes || [])) rated.add(v.jokeId);
+  for (const s of (passport.saves || [])) rated.add(s.jokeId);
+  for (const r of (passport.reactions || [])) rated.add(r.jokeId);
+
+  const affinity = computeCategoryAffinity(passport, allJokes);
+
+  return allJokes
+    .filter(j => !rated.has(j.id))
+    .map(j => ({ joke: j, score: affinity[j.category] || 0 }))
+    .sort((a, b) => b.score - a.score || (votes[b.joke.id] || 0) - (votes[a.joke.id] || 0))
+    .slice(0, limit)
+    .map((item, idx) => ({ ...item.joke, affinityScore: item.score, rank: idx + 1 }));
+}
+
+// GET /api/passport/:token/recommendations
+app.get('/api/passport/:token/recommendations', (req, res) => {
+  const { token } = req.params;
+  if (!UUID_V4_RE.test(token)) return res.status(400).json({ error: 'Invalid passport token format' });
+  const passports = readPassports();
+  if (!passports[token]) return res.status(404).json({ error: 'Passport not found' });
+
+  let limit = parseInt(req.query.limit);
+  if (isNaN(limit) || limit < 1) limit = 10;
+  if (limit > 20) limit = 20;
+
+  const passport = passports[token];
+  const jokes = allJokes();
+
+  // Already-rated set for totalUnrated
+  const rated = new Set();
+  for (const v of (passport.votes || [])) rated.add(v.jokeId);
+  for (const s of (passport.saves || [])) rated.add(s.jokeId);
+  for (const r of (passport.reactions || [])) rated.add(r.jokeId);
+  const totalUnrated = jokes.filter(j => !rated.has(j.id)).length;
+
+  const recs = getRecommendations(passport, jokes, limit);
+
+  if (recs.length === 0) {
+    // Fallback: weighted-random from unrated pool
+    const unrated = jokes.filter(j => !rated.has(j.id));
+    const pool = unrated.length >= limit ? unrated : jokes;
+    const fallbackPick = [];
+    const used = new Set();
+    for (let i = 0; i < Math.min(limit, pool.length); i++) {
+      let candidate = weightedRandom(pool.filter(j => !used.has(j.id)));
+      if (!candidate) break;
+      used.add(candidate.id);
+      fallbackPick.push({
+        id: candidate.id,
+        joke: candidate.joke,
+        category: candidate.category,
+        affinityScore: null,
+        rank: fallbackPick.length + 1,
+      });
+    }
+    return res.json({ recommendations: fallbackPick, strategy: 'fallback', totalUnrated });
+  }
+
+  const recommendations = recs.map(r => ({
+    id: r.id,
+    joke: r.joke,
+    category: r.category,
+    affinityScore: Math.round(r.affinityScore * 1000) / 1000,
+    rank: r.rank,
+  }));
+  res.json({ recommendations, strategy: 'affinity', totalUnrated });
+});
+
 module.exports = app;
 module.exports._resetCommentRateLimitForTest = _resetCommentRateLimitForTest;
 module.exports._readPassports = readPassports;
@@ -1091,3 +1206,5 @@ module.exports.HALF_LIFE_HOURS = HALF_LIFE_HOURS;
 module.exports.TRENDING_WINDOW_HOURS = TRENDING_WINDOW_HOURS;
 module.exports.TRENDING_EVENTS_FILE = TRENDING_EVENTS_FILE;
 module.exports._readTrendingEvents = readTrendingEvents;
+module.exports.computeCategoryAffinity = computeCategoryAffinity;
+module.exports.getRecommendations = getRecommendations;
