@@ -39,7 +39,7 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 ## Proposed (in flight)
 
-_(none)_
+- v28 — "For You" personalised joke feed: Passport-powered recommendation tab surfacing unrated jokes ranked by category affinity score derived from the user's vote/save/reaction history; falls back to weighted-random for new passports; GET /api/passport/:token/recommendations; first personalised feature closing the loop on the Passport investment [CID-20260804-DDF72BDE]
 
 ## Rejected / Not pursuing
 
