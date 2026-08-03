@@ -29,9 +29,11 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 - v22 — "On This Day" joke archive: date-picker browse of any past date's joke with vote counts, reactions, and shareable ?date= links [CID-20260802-11B7A540]
 - v23 — Bulk joke import: fetch-jokes.js script + admin batch-review UI (admin-import.html) + dedup logic; pool expanded from 15 → 776 jokes via icanhazdadjoke + JokeAPI safe filters [CEO-REQUEST-20260802]
 
+- v24 — Joke Passport: UUID v4 token in localStorage, passports.json, save/favourite jokes, cross-device shareable /passport/:token URL; tracks votes, reactions, saves, streak per anonymous session [CID-20260803-AFA576FB]
+
 ## Proposed (in flight)
 
-- v24 — Joke Passport: lightweight anonymous persistent profile via a browser-cookie/shareable token; tracks vote history, reaction history, streak, and saved/favourite jokes across sessions; no account required — share your passport URL to sync across devices [CID-20260803-AFA576FB]
+_(none)_
 
 ## Rejected / Not pursuing
 
