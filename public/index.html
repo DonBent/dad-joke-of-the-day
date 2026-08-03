@@ -266,6 +266,15 @@
     }
     #share-passport-btn:hover { background: #e8e8e8; }
     #share-passport-btn.copied { background: #d4f5d4; color: #2a7a2a; }
+    /* Groan Badges (v26) */
+    .badges-section { margin-top: 18px; border-top: 1px solid #f0f0f0; padding-top: 14px; }
+    .badges-title { font-size: 0.85rem; font-weight: 700; color: #555; margin-bottom: 10px; letter-spacing: 0.3px; }
+    .badges-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+    .badge-chip { display: inline-flex; align-items: center; gap: 4px; background: #fff8f0; border: 1px solid #fce8da; border-radius: 20px; padding: 4px 11px; font-size: 0.8rem; color: #555; }
+    .badges-empty-msg { font-size: 0.82rem; color: #bbb; font-style: italic; }
+    #share-badges-btn { background: #fff3e0; border: 1px solid #ffd180; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: 0.85rem; color: #b35c00; margin-top: 2px; }
+    #share-badges-btn:hover { background: #ffe8b2; }
+    #share-badges-btn.copied { background: #d4f5d4; color: #2a7a2a; border-color: #b2dfb2; }
     /* Save joke button */
     .save-joke-btn {
       background: #f9f9f9; border: 2px solid #eee; border-radius: 20px;
@@ -453,6 +462,13 @@
       </div>
       <div class="passport-saves-title">Saved Jokes</div>
       <div id="passport-saves-list"><div class="passport-empty">No saved jokes yet.</div></div>
+      <!-- Groan Badges (v26) -->
+      <div class="badges-section" data-testid="badges-section">
+        <div class="badges-title">🏅 Groan Badges</div>
+        <div class="badges-chips" id="badges-chips"></div>
+        <div class="badges-empty-msg" id="badges-empty" data-testid="badges-empty" style="display:none">Earn your first badge by voting or saving a joke</div>
+        <button id="share-badges-btn" data-testid="share-badges-button" onclick="shareBadges()" style="display:none">🥁 Share my Badges</button>
+      </div>
     </div>
     <div class="passport-footer">
       <button id="share-passport-btn" data-testid="share-passport-button" onclick="sharePassport()">🔗 Share my Passport</button>
@@ -919,6 +935,9 @@
         document.getElementById('pstat-votes').textContent = data.totalVotes;
         document.getElementById('pstat-reactions').textContent = data.totalReactions;
         document.getElementById('pstat-saves').textContent = data.totalSaves;
+        // Render badges (v26)
+        renderBadges(data.badges || []);
+        document.getElementById('pstat-saves').textContent = data.totalSaves;
         if (data.saves.length === 0) {
           document.getElementById('passport-saves-list').innerHTML = '<div class="passport-empty">No saved jokes yet.</div>';
         } else {
@@ -958,6 +977,42 @@
         btn.classList.toggle('saved', wasSaved);
         btn.textContent = wasSaved ? '\uD83D\uDD16 Saved' : '\uD83D\uDD16 Save';
       }
+    };
+
+    window.renderBadges = function(badges) {
+      const chips = document.getElementById('badges-chips');
+      const empty = document.getElementById('badges-empty');
+      const shareBtn = document.getElementById('share-badges-btn');
+      if (!chips) return;
+      chips.innerHTML = '';
+      if (!badges || badges.length === 0) {
+        if (empty) empty.style.display = 'block';
+        if (shareBtn) shareBtn.style.display = 'none';
+      } else {
+        if (empty) empty.style.display = 'none';
+        badges.forEach(b => {
+          const chip = document.createElement('span');
+          chip.className = 'badge-chip';
+          chip.setAttribute('data-testid', `badge-chip-${b.id}`);
+          chip.textContent = `${b.emoji} ${b.name}`;
+          chips.appendChild(chip);
+        });
+        if (shareBtn) shareBtn.style.display = 'block';
+      }
+    };
+
+    window.shareBadges = function() {
+      const token = passportGetToken();
+      if (!token) return;
+      const chips = document.querySelectorAll('#badges-chips .badge-chip');
+      const badgeLine = Array.from(chips).map(c => c.textContent.trim()).join(' · ');
+      const url = `${window.location.origin}/passport/${token}`;
+      const text = `My Dad Joke Groan Badges 🥁\n${badgeLine}\n${url}`;
+      const btn = document.getElementById('share-badges-btn');
+      navigator.clipboard.writeText(text).then(() => {
+        if (btn) { btn.textContent = '✅ Copied!'; btn.classList.add('copied'); }
+        setTimeout(() => { if (btn) { btn.textContent = '🥁 Share my Badges'; btn.classList.remove('copied'); } }, 2000);
+      }).catch(() => {});
     };
 
     window.sharePassport = function() {

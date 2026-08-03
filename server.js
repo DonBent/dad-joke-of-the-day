@@ -449,8 +449,33 @@ function ensurePassport(passports, token) {
   return passports[token];
 }
 
+// ── Groan Badges (v26) ────────────────────────────────────────────────────
+const BADGE_DEFINITIONS = [
+  { id: 'first_groaner',    name: 'First Groaner',    emoji: '🗳️',  test: p => p.totalVotes >= 1 },
+  { id: 'laugh_track',     name: 'Laugh Track',      emoji: '😂',  test: p => p.totalReactions >= 1 },
+  { id: 'hoarder',         name: 'Hoarder',          emoji: '🔖',  test: p => p.totalSaves >= 10 },
+  { id: 'loyal_groaner',   name: 'Loyal Groaner',    emoji: '🔥',  test: p => p.streak >= 7 },
+  { id: 'prolific',        name: 'Prolific',         emoji: '🗳️',  test: p => p.totalVotes >= 50 },
+  { id: 'collector',       name: 'Collector',        emoji: '🏆',  test: p => p.totalSaves >= 50 },
+  { id: 'marathon_groaner',name: 'Marathon Groaner', emoji: '🔥',  test: p => p.streak >= 30 },
+  { id: 'reactor',         name: 'Reactor',          emoji: '😬',  test: p => p.totalReactions >= 25 },
+  { id: 'superfan',        name: 'Superfan',         emoji: '⭐',  test: p => p.totalVotes >= 100 && p.totalSaves >= 25 && p.streak >= 14 },
+];
+
+function computeBadges(passport) {
+  const summary = {
+    streak: passport.streak || 0,
+    totalVotes: Array.isArray(passport.votes) ? passport.votes.length : (passport.totalVotes || 0),
+    totalReactions: Array.isArray(passport.reactions) ? passport.reactions.length : (passport.totalReactions || 0),
+    totalSaves: Array.isArray(passport.saves) ? passport.saves.length : (passport.totalSaves || 0),
+  };
+  return BADGE_DEFINITIONS
+    .filter(b => b.test(summary))
+    .map(({ id, name, emoji }) => ({ id, name, emoji, earnedAt: null }));
+}
+
 function passportSummary(p) {
-  return {
+  const summary = {
     token: p.token,
     createdAt: p.createdAt,
     streak: p.streak || 0,
@@ -461,6 +486,8 @@ function passportSummary(p) {
     totalReactions: p.reactions.length,
     totalSaves: p.saves.length
   };
+  summary.badges = computeBadges(summary);
+  return summary;
 }
 
 // Middleware: optional passport token validation
@@ -523,6 +550,15 @@ app.get('/api/passport/:token', (req, res) => {
   const passports = readPassports();
   if (!passports[token]) return res.status(404).json({ error: 'Passport not found' });
   res.json(passportSummary(passports[token]));
+});
+
+// GET /api/passport/:token/badges — convenience endpoint
+app.get('/api/passport/:token/badges', (req, res) => {
+  const { token } = req.params;
+  if (!UUID_V4_RE.test(token)) return res.status(400).json({ error: 'Invalid passport token format' });
+  const passports = readPassports();
+  if (!passports[token]) return res.status(404).json({ error: 'Passport not found' });
+  res.json(computeBadges(passports[token]));
 });
 
 // POST /api/passport/:token/saves/:jokeId — toggle save
@@ -932,3 +968,5 @@ module.exports.sendDailyPush = sendDailyPush;
 module.exports._duelPairForDate = duelPairForDate;
 module.exports._loadDuel = loadDuel;
 module.exports._jokeForDate = jokeForDate;
+module.exports.computeBadges = computeBadges;
+module.exports.BADGE_DEFINITIONS = BADGE_DEFINITIONS;
