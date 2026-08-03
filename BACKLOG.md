@@ -37,9 +37,11 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 - v27 — "Trending Now" panel: time-decay ranked joke list (HALF_LIFE_HOURS=2, TRENDING_WINDOW_HOURS=24); GET /api/jokes/trending with ?limit/?window params + X-Trending-Window-Hours header; trending-events.json append-only event log; collapsible panel with 60 s auto-poll, flame bar visualisation, localStorage state [CID-20260803-BC998885]
 
+- v28 — "For You" personalised joke feed: computeCategoryAffinity() + getRecommendations() pure functions; GET /api/passport/:token/recommendations returns affinity/fallback strategy + totalUnrated; ✨ For You tab with 10 joke cards, save buttons, refresh, fallback hint; no new storage [CID-20260804-DDF72BDE]
+
 ## Proposed (in flight)
 
-- v28 — "For You" personalised joke feed: Passport-powered recommendation tab surfacing unrated jokes ranked by category affinity score derived from the user's vote/save/reaction history; falls back to weighted-random for new passports; GET /api/passport/:token/recommendations; first personalised feature closing the loop on the Passport investment [CID-20260804-DDF72BDE]
+_(none)_
 
 ## Rejected / Not pursuing
 
