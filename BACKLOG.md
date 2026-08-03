@@ -35,7 +35,7 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 ## Proposed (in flight)
 
-_(none)_
+- v26 — Groan Badges: Passport-powered milestone achievement system (e.g. "First Groaner" for first vote, "Hoarder" for 10 saves, "Loyal Groaner" for 7-day streak, "Prolific" for 50 votes cast); badges displayed in Passport panel + shareable badge card; makes the Passport feel worth having and rewards loyal visitors [CID-20260803-1A206CBB]
 
 ## Rejected / Not pursuing
 
