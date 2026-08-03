@@ -33,7 +33,7 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 ## Proposed (in flight)
 
-_(none)_
+- v25 — "Today's Vibe" live reaction summary: auto-refreshing strip beneath the daily joke card showing live vote score, dominant emoji reaction, and comment count; turns the solo daily visit into a felt shared moment without requiring any user action [CID-20260803-0600F5CA]
 
 ## Rejected / Not pursuing
 
