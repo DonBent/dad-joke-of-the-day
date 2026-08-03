@@ -37,7 +37,7 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 ## Proposed (in flight)
 
-_(none)_
+- v27 — "Trending Now" panel: time-decay ranked joke list using recent votes + reactions in the last 2 hours weighted more heavily than older activity; GET /api/jokes/trending with configurable window; surfaces fresh activity from the 776-joke pool that the weekly leaderboard misses [CID-20260803-BC998885]
 
 ## Rejected / Not pursuing
 
