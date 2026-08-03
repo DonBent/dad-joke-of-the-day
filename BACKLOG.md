@@ -35,9 +35,11 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 - v26 — Groan Badges: 9 Passport-powered milestone badges (First Groaner, Laugh Track, Hoarder, Loyal Groaner, Prolific, Collector, Marathon Groaner, Reactor, Superfan) computed via pure computeBadges(); displayed in Passport panel as emoji chips + shareable plain-text card; GET /api/passport/:token/badges convenience endpoint [CID-20260803-1A206CBB]
 
+- v27 — "Trending Now" panel: time-decay ranked joke list (HALF_LIFE_HOURS=2, TRENDING_WINDOW_HOURS=24); GET /api/jokes/trending with ?limit/?window params + X-Trending-Window-Hours header; trending-events.json append-only event log; collapsible panel with 60 s auto-poll, flame bar visualisation, localStorage state [CID-20260803-BC998885]
+
 ## Proposed (in flight)
 
-- v27 — "Trending Now" panel: time-decay ranked joke list using recent votes + reactions in the last 2 hours weighted more heavily than older activity; GET /api/jokes/trending with configurable window; surfaces fresh activity from the 776-joke pool that the weekly leaderboard misses [CID-20260803-BC998885]
+_(none)_
 
 ## Rejected / Not pursuing
 
