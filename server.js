@@ -473,6 +473,49 @@ function passportToken(req, res, next) {
   next();
 }
 
+// ── Today's Vibe (v25) ────────────────────────────────────────────────────
+const REACTION_EMOJIS = { laugh: '😂', groan: '😬', drums: '🥁', melt: '🫠' };
+
+app.get('/api/jokes/today/vibe', (req, res) => {
+  const today = todayStr();
+  const joke = jokeForDate(today);
+  const jokeId = joke.id;
+  const idStr = String(jokeId);
+
+  // Validate optional passport token early
+  const token = req.headers['x-passport-token'] || req.query.passport;
+  if (token && !UUID_V4_RE.test(token)) return res.status(400).json({ error: 'Invalid passport token format' });
+  // Score
+  const score = votes[jokeId] || 0;
+
+  // Dominant reaction
+  const rxns = reactions[idStr] || {};
+  let dominantReaction = null;
+  let dominantReactionCount = 0;
+  for (const [key, count] of Object.entries(rxns)) {
+    if (count > dominantReactionCount) {
+      dominantReactionCount = count;
+      dominantReaction = REACTION_EMOJIS[key] || null;
+    }
+  }
+
+  // Comment count (all statuses)
+  const comments = readJson(COMMENTS_FILE, []);
+  const commentCount = comments.filter(c => c.jokeId === jokeId).length;
+
+  const result = { jokeId, score, dominantReaction, dominantReactionCount, commentCount };
+
+  // Passport enrichment
+  if (token && UUID_V4_RE.test(token)) {
+    const passports = readPassports();
+    const p = passports[token];
+    result.userVoted = p ? p.votes.some(v => v.jokeId === jokeId) : false;
+    result.userReacted = p ? (p.reactions.find(r => r.jokeId === jokeId) ? REACTION_EMOJIS[p.reactions.find(r => r.jokeId === jokeId).emoji] || p.reactions.find(r => r.jokeId === jokeId).emoji : null) : null;
+  }
+
+  res.json(result);
+});
+
 // GET /api/passport/:token
 app.get('/api/passport/:token', (req, res) => {
   const { token } = req.params;

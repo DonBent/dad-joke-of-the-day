@@ -164,6 +164,20 @@
     }
     /* Roast the Joke panel (v19) */
     .roast-panel { margin-top: 20px; border-top: 2px solid #f5f5f5; padding-top: 18px; }
+    /* Today's Vibe strip (v25) */
+    .vibe-strip {
+      display: flex; align-items: center; justify-content: center;
+      gap: 18px; margin: 12px 0 4px;
+      background: #fdf8f5; border: 1px solid #fce8da;
+      border-radius: 10px; padding: 8px 18px;
+      font-size: 0.87rem; color: #888; flex-wrap: wrap;
+    }
+    .vibe-strip.hidden { display: none; }
+    .vibe-item { display: flex; align-items: center; gap: 5px; }
+    .vibe-label { font-size: 0.75rem; color: #bbb; text-transform: uppercase; letter-spacing: 0.4px; }
+    .vibe-value { font-weight: 700; color: #ff6b35; font-size: 0.92rem; transition: opacity 0.3s; }
+    .vibe-value.flash { opacity: 0.2; }
+    @media (max-width: 400px) { .vibe-strip { gap: 10px; padding: 7px 10px; font-size: 0.82rem; } }
     .roast-toggle {
       background: none; border: 2px dashed #ffd5bf; border-radius: 10px;
       color: #ff6b35; width: 100%; padding: 10px 16px; font-size: 0.93rem;
@@ -325,6 +339,20 @@
                cursor:pointer;transition:all 0.2s;width:100%;">
         🔔 Get daily joke notification
       </button>
+    </div>
+    <!-- Today's Vibe strip (v25) -->
+    <div class="vibe-strip hidden" id="vibe-strip" data-testid="vibe-strip">
+      <div class="vibe-item">
+        <span class="vibe-label">Score</span>
+        <span class="vibe-value" id="vibe-score" data-testid="vibe-score">&mdash;</span>
+      </div>
+      <div class="vibe-item">
+        <span class="vibe-label">Vibe</span>
+        <span class="vibe-value" id="vibe-dominant-reaction" data-testid="vibe-dominant-reaction">&mdash;</span>
+      </div>
+      <div class="vibe-item">
+        <span class="vibe-value" id="vibe-comment-count" data-testid="vibe-comment-count">&mdash;</span>
+      </div>
     </div>
     <!-- Joke Duel panel (v21) -->
     <div id="duel-section" style="margin-top:20px;">
@@ -712,6 +740,94 @@
     }
 
     init();
+  </script>
+
+  <!-- Today's Vibe JS (v25) -->
+  <script>
+  (function() {
+    const VIBE_POLL_INTERVAL_MS = 30000;
+    let _vibeTimer = null;
+    let _lastVibe = {};
+
+    function fmtScore(n) {
+      if (n > 0) return '+' + n;
+      return String(n);
+    }
+
+    function fmtComments(n) {
+      if (n === 0) return 'Be the first to comment';
+      return n === 1 ? '1 comment' : n + ' comments';
+    }
+
+    function flashAndSet(id, val) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.textContent === String(val)) return; // no change, skip animation
+      el.classList.add('flash');
+      setTimeout(() => {
+        el.textContent = val;
+        el.classList.remove('flash');
+      }, 150);
+    }
+
+    function renderVibe(data) {
+      const strip = document.getElementById('vibe-strip');
+      if (!strip) return;
+      strip.classList.remove('hidden');
+      flashAndSet('vibe-score', fmtScore(data.score));
+      flashAndSet('vibe-dominant-reaction', data.dominantReaction || '\u2014');
+      flashAndSet('vibe-comment-count', fmtComments(data.commentCount));
+      _lastVibe = data;
+    }
+
+    async function fetchVibe() {
+      try {
+        const headers = {};
+        if (typeof window.passportGetToken === 'function') {
+          const t = window.passportGetToken();
+          if (t) headers['X-Passport-Token'] = t;
+        }
+        const res = await fetch('/api/jokes/today/vibe', { cache: 'no-store', headers });
+        if (!res.ok) return;
+        renderVibe(await res.json());
+      } catch(e) {}
+    }
+
+    function startVibePolling() {
+      stopVibePolling();
+      fetchVibe();
+      _vibeTimer = setInterval(() => {
+        if (document.visibilityState !== 'hidden') fetchVibe();
+      }, VIBE_POLL_INTERVAL_MS);
+    }
+
+    function stopVibePolling() {
+      if (_vibeTimer) { clearInterval(_vibeTimer); _vibeTimer = null; }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') fetchVibe();
+    });
+
+    // Only show on the today tab
+    document.addEventListener('DOMContentLoaded', () => {
+      // Hook into tab switching: show only on today tab
+      const origSwitch = window.switchTab;
+      window.switchTab = function(tab) {
+        if (typeof origSwitch === 'function') origSwitch(tab);
+        const strip = document.getElementById('vibe-strip');
+        if (!strip) return;
+        if (tab === 'today') {
+          strip.classList.remove('hidden');
+          startVibePolling();
+        } else {
+          strip.classList.add('hidden');
+          stopVibePolling();
+        }
+      };
+      startVibePolling();
+    });
+  })();
   </script>
 
   <!-- Joke Passport JS (v24) -->
