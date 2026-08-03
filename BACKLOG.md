@@ -33,9 +33,11 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 - v25 — "Today's Vibe" live reaction summary strip: auto-refreshing strip beneath the daily joke card showing net vote score, dominant emoji reaction, and comment count; polls GET /api/jokes/today/vibe every 30 s, pauses on hidden tab, animates changes [CID-20260803-0600F5CA]
 
+- v26 — Groan Badges: 9 Passport-powered milestone badges (First Groaner, Laugh Track, Hoarder, Loyal Groaner, Prolific, Collector, Marathon Groaner, Reactor, Superfan) computed via pure computeBadges(); displayed in Passport panel as emoji chips + shareable plain-text card; GET /api/passport/:token/badges convenience endpoint [CID-20260803-1A206CBB]
+
 ## Proposed (in flight)
 
-- v26 — Groan Badges: Passport-powered milestone achievement system (e.g. "First Groaner" for first vote, "Hoarder" for 10 saves, "Loyal Groaner" for 7-day streak, "Prolific" for 50 votes cast); badges displayed in Passport panel + shareable badge card; makes the Passport feel worth having and rewards loyal visitors [CID-20260803-1A206CBB]
+_(none)_
 
 ## Rejected / Not pursuing
 
