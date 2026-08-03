@@ -31,9 +31,7 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 ## Proposed (in flight)
 
-
-
-
+- v24 — Joke Passport: lightweight anonymous persistent profile via a browser-cookie/shareable token; tracks vote history, reaction history, streak, and saved/favourite jokes across sessions; no account required — share your passport URL to sync across devices [CID-20260803-AFA576FB]
 
 ## Rejected / Not pursuing
 
