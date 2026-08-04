@@ -41,7 +41,7 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 ## Proposed (in flight)
 
-_(none)_
+- v29 — "Joke of the Year" annual retrospective: GET /api/jokes/best-of-year?year=YYYY returns the highest net-voted joke for the given calendar year; dedicated /best-of-year page with year selector, trophy display, and shareable card; auto-computed from votes.json; completes the temporal recognition arc (daily → weekly → monthly → annual) [CID-20260804-7BD05379]
 
 ## Rejected / Not pursuing
 
