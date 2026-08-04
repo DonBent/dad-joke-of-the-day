@@ -375,6 +375,7 @@
     <div class="actions">
       <button class="primary" id="action-btn" onclick="onAction()">Another one! 👴</button>
       <button id="share-btn" onclick="shareJoke()">🔗 Share</button>
+      <button id="challenge-btn" data-testid="challenge-button" onclick="challengeAFriend()" style="background:#fff3ec;color:#ff6b35;border:1.5px solid #ffd5bf;border-radius:10px;padding:9px 16px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit;transition:background 0.2s;">🎯 Challenge a Friend</button>
     </div>
     <!-- Push notification opt-in (v20) -->
     <div id="push-section" style="display:none;margin-top:18px;">
@@ -700,6 +701,32 @@
         btn.textContent = '✅ Copied!'; btn.classList.add('copied');
         setTimeout(() => { btn.textContent = '🔗 Share'; btn.classList.remove('copied'); }, 2000);
       }).catch(() => prompt('Copy this link:', window.location.href));
+    }
+
+    async function challengeAFriend() {
+      if (!currentJokeId) return;
+      const btn = document.getElementById('challenge-btn');
+      const orig = btn.textContent;
+      btn.textContent = '⏳ Creating…';
+      btn.disabled = true;
+      try {
+        const res = await fetch(`/api/jokes/${currentJokeId}/challenge`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Could not create challenge'); return; }
+        const url = window.location.origin + data.challengeUrl;
+        if (navigator.share) {
+          await navigator.share({ title: '🎯 Can you guess the punchline?', text: 'I dare you to guess this joke\'s punchline!', url });
+        } else {
+          await navigator.clipboard.writeText(url);
+          btn.textContent = '✅ Link copied!';
+          setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+          return;
+        }
+      } catch (e) {
+        // share cancelled or error — ignore
+      }
+      btn.textContent = orig;
+      btn.disabled = false;
     }
 
     function switchTab(tab) {

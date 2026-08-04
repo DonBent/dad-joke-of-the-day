@@ -40,10 +40,12 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 - v28 — "For You" personalised joke feed: computeCategoryAffinity() + getRecommendations() pure functions; GET /api/passport/:token/recommendations returns affinity/fallback strategy + totalUnrated; ✨ For You tab with 10 joke cards, save buttons, refresh, fallback hint; no new storage [CID-20260804-DDF72BDE]
 
 - v29 — "Joke of the Year" annual retrospective: getBestOfYear() pure function; GET /api/jokes/best-of-year[?year=YYYY] + 400/404 error codes; vote-log.json timestamped log (non-breaking); /best-of-year page with year selector, trophy card, Web Share API, empty state; footer link in index.html [CID-20260804-7BD05379]
+- v30 — "Challenge a Friend" joke duel link: generate a shareable one-time challenge URL for any joke that shows only the setup; the recipient must type a guess before the punchline is revealed; result screen shows their guess vs. real punchline with emoji rating + reaction + share-your-score card — turns passive joke consumption into active social play without requiring auth [CID-20260804-F3A12E91]
 
 ## Proposed (in flight)
 
 _(none)_
+
 
 ## Rejected / Not pursuing
 

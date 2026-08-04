@@ -24,6 +24,7 @@ const IMPORT_PENDING_FILE = process.env.IMPORT_PENDING_FILE || path.join(__dirna
 const PASSPORTS_FILE = process.env.PASSPORTS_FILE || path.join(__dirname, 'passports.json');
 const TRENDING_EVENTS_FILE = process.env.TRENDING_EVENTS_FILE || path.join(__dirname, 'trending-events.json');
 const VOTE_LOG_FILE = process.env.VOTE_LOG_FILE || path.join(__dirname, 'vote-log.json');
+const CHALLENGES_FILE = process.env.CHALLENGES_FILE || path.join(__dirname, 'challenges.json');
 
 // UUID v4 validation regex
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -1280,6 +1281,135 @@ app.get('/api/jokes/best-of-year', (req, res) => {
 });
 
 
+// ── Challenge-a-Friend (v30) ────────────────────────────────────────────────
+
+const CHALLENGE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const CHALLENGE_GUESS_LIMIT = 3; // per IP per token
+
+function readChallenges() {
+  return readJson(CHALLENGES_FILE, []);
+}
+
+function saveChallenges(data) {
+  writeJson(CHALLENGES_FILE, data);
+}
+
+/**
+ * Simple string-similarity grade: normalise both strings to lowercase word
+ * tokens and count overlap. Returns 'close' | 'nope' | 'good'.
+ */
+function gradeGuess(guess, punchline) {
+  function tokens(s) {
+    return s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
+  }
+  const gTokens = new Set(tokens(guess));
+  const pTokens = tokens(punchline);
+  if (!pTokens.length || !gTokens.size) return 'nope';
+  const matches = pTokens.filter(t => gTokens.has(t)).length;
+  const ratio = matches / pTokens.length;
+  if (ratio >= 0.5) return 'good';   // 🥁 surprisingly good
+  if (ratio >= 0.2) return 'close';  // 😂 close
+  return 'nope';                      // 😬 nope
+}
+
+/**
+ * Split joke text into { setup, punchline } — same heuristic as client.
+ */
+function splitJokeText(text) {
+  const nl = text.indexOf('\n');
+  if (nl !== -1) return { setup: text.slice(0, nl).trim(), punchline: text.slice(nl + 1).trim() };
+  const qa = text.match(/^(Q:?\s*.+?)\s+(?:A:?\s*)(.+)$/is);
+  if (qa) return { setup: qa[1].trim(), punchline: qa[2].trim() };
+  const qmark = text.indexOf('? ');
+  if (qmark !== -1) return { setup: text.slice(0, qmark + 1).trim(), punchline: text.slice(qmark + 2).trim() };
+  const m = text.match(/^(.+?)\s[–-]\s(.+)$/);
+  if (m) return { setup: m[1].trim(), punchline: m[2].trim() };
+  return { setup: text, punchline: '' };
+}
+
+// In-memory IP-rate-limit: guessRateLimit[token][ip] = count
+const guessRateLimit = {};
+
+// POST /api/jokes/:id/challenge — create challenge token
+app.post('/api/jokes/:id/challenge', (req, res) => {
+  const joke = allJokes().find(j => j.id === parseInt(req.params.id));
+  if (!joke) return res.status(404).json({ error: 'Joke not found' });
+  const { setup, punchline } = splitJokeText(joke.joke);
+  if (!punchline) return res.status(422).json({ error: 'Joke cannot be split into setup/punchline' });
+
+  const token = crypto.randomUUID();
+  const challenges = readChallenges();
+  challenges.push({ token, jokeId: joke.id, createdAt: new Date().toISOString(), guesses: [] });
+  saveChallenges(challenges);
+
+  res.json({ token, challengeUrl: `/challenge/${token}`, setup });
+});
+
+// GET /api/challenges/:token
+app.get('/api/challenges/:token', (req, res) => {
+  if (!UUID_V4_RE.test(req.params.token)) return res.status(400).json({ error: 'Invalid token' });
+  const challenges = readChallenges();
+  const ch = challenges.find(c => c.token === req.params.token);
+  if (!ch) return res.status(404).json({ error: 'Challenge not found' });
+  if (Date.now() - new Date(ch.createdAt).getTime() > CHALLENGE_TTL_MS) {
+    return res.status(410).json({ error: 'Challenge expired' });
+  }
+  const joke = allJokes().find(j => j.id === ch.jokeId);
+  if (!joke) return res.status(404).json({ error: 'Joke not found' });
+  const { setup, punchline } = splitJokeText(joke.joke);
+  // Only include punchline if caller has already guessed (guessCount > 0)
+  const guessCount = ch.guesses.length;
+  const payload = { jokeId: ch.jokeId, setup, guessCount };
+  if (guessCount > 0) payload.punchline = punchline;
+  res.json(payload);
+});
+
+// POST /api/challenges/:token/guess
+app.post('/api/challenges/:token/guess', (req, res) => {
+  if (!UUID_V4_RE.test(req.params.token)) return res.status(400).json({ error: 'Invalid token' });
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const { guess } = req.body || {};
+  if (typeof guess !== 'string' || !guess.trim()) {
+    return res.status(400).json({ error: 'guess is required' });
+  }
+
+  const challenges = readChallenges();
+  const idx = challenges.findIndex(c => c.token === req.params.token);
+  if (idx === -1) return res.status(404).json({ error: 'Challenge not found' });
+  const ch = challenges[idx];
+
+  if (Date.now() - new Date(ch.createdAt).getTime() > CHALLENGE_TTL_MS) {
+    return res.status(410).json({ error: 'Challenge expired' });
+  }
+
+  // IP rate limit: 3 guesses per token per IP
+  if (!guessRateLimit[ch.token]) guessRateLimit[ch.token] = {};
+  const ipCount = guessRateLimit[ch.token][ip] || 0;
+  if (ipCount >= CHALLENGE_GUESS_LIMIT) {
+    return res.status(429).json({ error: 'Too many guesses for this challenge' });
+  }
+  guessRateLimit[ch.token][ip] = ipCount + 1;
+
+  const joke = allJokes().find(j => j.id === ch.jokeId);
+  if (!joke) return res.status(404).json({ error: 'Joke not found' });
+  const { punchline } = splitJokeText(joke.joke);
+
+  const grade = gradeGuess(guess.trim(), punchline);
+  ch.guesses.push({ guess: guess.trim(), grade, ip, at: new Date().toISOString() });
+  challenges[idx] = ch;
+  saveChallenges(challenges);
+
+  res.json({ punchline, grade });
+});
+
+// GET /challenge/:token — serve challenge page
+app.get('/challenge/:token', (req, res) => {
+  if (!UUID_V4_RE.test(req.params.token)) {
+    return res.status(400).send('Invalid challenge token');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'challenge-page.html'));
+});
+
 module.exports = app;
 module.exports._resetCommentRateLimitForTest = _resetCommentRateLimitForTest;
 module.exports._readPassports = readPassports;
@@ -1302,3 +1432,8 @@ module.exports.computeCategoryAffinity = computeCategoryAffinity;
 module.exports.getRecommendations = getRecommendations;
 module.exports.getBestOfYear = getBestOfYear;
 module.exports.VOTE_LOG_FILE = VOTE_LOG_FILE;
+module.exports.CHALLENGES_FILE = CHALLENGES_FILE;
+module.exports._readChallenges = readChallenges;
+module.exports._saveChallenges = saveChallenges;
+module.exports.gradeGuess = gradeGuess;
+module.exports.splitJokeText = splitJokeText;

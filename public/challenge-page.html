@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Challenge a Friend — Dad Joke of the Day</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fff8f3;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 24px 16px 48px;
+      color: #333;
+    }
+
+    .logo-link {
+      text-decoration: none;
+      margin-bottom: 20px;
+      display: block;
+      text-align: center;
+    }
+    .logo { font-size: 2rem; }
+    .logo-sub { font-size: 0.75rem; color: #aaa; letter-spacing: 0.5px; text-transform: uppercase; }
+
+    .card {
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 2px 18px rgba(0,0,0,0.08);
+      padding: 28px 24px;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #fff3ec;
+      color: #ff6b35;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 14px;
+    }
+
+    .heading {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #222;
+      margin-bottom: 6px;
+    }
+    .subheading {
+      font-size: 0.85rem;
+      color: #999;
+      margin-bottom: 20px;
+    }
+
+    .setup-box {
+      background: #fafafa;
+      border: 1.5px solid #f0e0d6;
+      border-radius: 10px;
+      padding: 16px 18px;
+      font-size: 1.05rem;
+      color: #444;
+      line-height: 1.6;
+      font-style: italic;
+      margin-bottom: 22px;
+    }
+
+    /* Guess form */
+    label {
+      display: block;
+      font-size: 0.82rem;
+      color: #888;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    #challenge-guess-input {
+      display: block;
+      width: 100%;
+      border: 2px solid #eee;
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 1rem;
+      font-family: inherit;
+      color: #333;
+      outline: none;
+      transition: border-color 0.2s;
+      margin-bottom: 12px;
+      -webkit-appearance: none;
+    }
+    #challenge-guess-input:focus { border-color: #ff6b35; }
+    #challenge-guess-input:disabled { background: #f5f5f5; color: #aaa; }
+
+    #challenge-submit-btn {
+      display: block;
+      width: 100%;
+      background: #ff6b35;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 0;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s, transform 0.1s;
+      touch-action: manipulation;
+    }
+    #challenge-submit-btn:hover { background: #e55a26; }
+    #challenge-submit-btn:active { transform: scale(0.98); }
+    #challenge-submit-btn:disabled { background: #ddd; color: #aaa; cursor: default; }
+
+    /* Result area */
+    #result-area {
+      display: none;
+      margin-top: 22px;
+      border-top: 1.5px solid #f0e0d6;
+      padding-top: 20px;
+    }
+    #result-area.visible { display: block; }
+
+    .punchline-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #bbb;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    #challenge-result-punchline {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #222;
+      line-height: 1.5;
+      margin-bottom: 16px;
+      animation: punchReveal 0.5s ease both;
+    }
+
+    @keyframes punchReveal {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .your-guess-row {
+      font-size: 0.88rem;
+      color: #777;
+      margin-bottom: 12px;
+    }
+    .your-guess-row strong { color: #444; }
+
+    .grade-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 20px;
+      padding: 6px 16px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+    .grade-good  { background: #d4f5d4; color: #1e6b1e; }
+    .grade-close { background: #fff3ec; color: #c8460b; }
+    .grade-nope  { background: #fde8e8; color: #a02020; }
+
+    #challenge-share-btn {
+      display: block;
+      width: 100%;
+      background: #ff6b35;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 0;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s;
+      touch-action: manipulation;
+    }
+    #challenge-share-btn:hover { background: #e55a26; }
+
+    .home-link {
+      display: block;
+      text-align: center;
+      margin-top: 20px;
+      font-size: 0.85rem;
+      color: #bbb;
+      text-decoration: none;
+    }
+    .home-link:hover { color: #ff6b35; }
+
+    /* Error / expired / loading states */
+    .state-msg {
+      text-align: center;
+      padding: 32px 0 8px;
+      color: #888;
+      font-size: 1rem;
+    }
+    .state-emoji { font-size: 2.5rem; margin-bottom: 8px; }
+    .state-title { font-weight: 700; color: #444; margin-bottom: 6px; font-size: 1.1rem; }
+
+    /* Already guessed notice */
+    .already-msg {
+      background: #f5f5f5;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 0.88rem;
+      color: #888;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<a class="logo-link" href="/">
+  <div class="logo">👴</div>
+  <div class="logo-sub">Dad Joke of the Day</div>
+</a>
+
+<div class="card" id="card">
+  <div class="state-msg" id="loading-state">
+    <div class="state-emoji">⏳</div>
+    <div class="state-title">Loading challenge…</div>
+  </div>
+</div>
+
+<a class="home-link" href="/">← Back to today's joke</a>
+
+<script>
+(function () {
+  'use strict';
+
+  var token = location.pathname.split('/').pop();
+  var submittedGuess = null;
+  var fetchedPunchline = null;
+  var fetchedGrade = null;
+
+  // ── Grade display helpers ──────────────────────────────────────────────────
+
+  var GRADE_META = {
+    good:  { emoji: '🥁', label: 'Surprisingly good!', cls: 'grade-good' },
+    close: { emoji: '😂', label: 'So close!',          cls: 'grade-close' },
+    nope:  { emoji: '😬', label: 'Nope… 😬',           cls: 'grade-nope' }
+  };
+
+  function gradeFor(g) {
+    return GRADE_META[g] || GRADE_META.nope;
+  }
+
+  // ── Render states ─────────────────────────────────────────────────────────
+
+  function renderError(emoji, title, detail) {
+    document.getElementById('card').innerHTML = [
+      '<div class="state-msg">',
+      '  <div class="state-emoji">' + emoji + '</div>',
+      '  <div class="state-title">' + esc(title) + '</div>',
+      detail ? '  <p style="margin-top:6px;font-size:0.85rem;">' + esc(detail) + '</p>' : '',
+      '</div>'
+    ].join('');
+  }
+
+  function renderChallenge(data) {
+    // data = { jokeId, setup, guessCount, punchline? }
+    var alreadyGuessed = data.guessCount > 0;
+
+    var html = [
+      '<div class="badge">🎯 Challenge a Friend</div>',
+      '<div class="heading">Can you guess the punchline?</div>',
+      '<div class="subheading">A friend has challenged you! Read the setup, then type your best guess.</div>',
+      '<div class="setup-box">' + esc(data.setup) + '</div>',
+    ];
+
+    if (alreadyGuessed && data.punchline) {
+      // Already submitted — show result directly
+      html.push('<div class="already-msg">You already submitted a guess for this challenge. Here\'s the result:</div>');
+      html.push(buildResultHtml('(previous guess)', data.punchline, 'nope', true));
+    } else {
+      html.push(
+        '<label for="challenge-guess-input">Your guess:</label>',
+        '<input id="challenge-guess-input" data-testid="challenge-guess-input"',
+        '  type="text" autocomplete="off" autocorrect="off" spellcheck="false"',
+        '  placeholder="Go on, give it your best groan…" />',
+        '<button id="challenge-submit-btn" data-testid="challenge-submit-btn"',
+        '  onclick="submitGuess()">🥁 Reveal the punchline!</button>',
+        '<div id="result-area"></div>'
+      );
+    }
+
+    document.getElementById('card').innerHTML = html.join('\n');
+
+    // Focus the input on desktop
+    var inp = document.getElementById('challenge-guess-input');
+    if (inp && !alreadyGuessed) {
+      if (window.matchMedia('(hover: hover)').matches) inp.focus();
+      inp.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') submitGuess();
+      });
+    }
+  }
+
+  function buildResultHtml(guess, punchline, grade, hideGuessRow) {
+    var gm = gradeFor(grade);
+    var rows = [
+      '<div id="result-area" class="visible">',
+      '  <div class="punchline-label">The Punchline</div>',
+      '  <div id="challenge-result-punchline" data-testid="challenge-result-punchline">' + esc(punchline) + '</div>',
+    ];
+    if (!hideGuessRow && guess && guess.trim()) {
+      rows.push('  <div class="your-guess-row">Your guess: <strong>' + esc(guess) + '</strong></div>');
+    }
+    rows.push(
+      '  <div class="grade-chip ' + gm.cls + '">' + gm.emoji + ' ' + esc(gm.label) + '</div>',
+      '  <button id="challenge-share-btn" data-testid="challenge-share-btn"',
+      '    onclick="shareScore(\'' + esc(grade) + '\')">📤 Share your score</button>',
+      '</div>'
+    );
+    return rows.join('\n');
+  }
+
+  // ── Submit guess ──────────────────────────────────────────────────────────
+
+  window.submitGuess = function () {
+    var inp = document.getElementById('challenge-guess-input');
+    var btn = document.getElementById('challenge-submit-btn');
+    if (!inp || !btn) return;
+    var guess = inp.value.trim();
+
+    inp.disabled = true;
+    btn.disabled = true;
+    btn.textContent = '⏳ Checking…';
+
+    fetch('/api/challenges/' + encodeURIComponent(token) + '/guess', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guess: guess })
+    })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
+    .then(function (r) {
+      if (!r.ok) {
+        var msg = r.data.error || 'Something went wrong';
+        btn.disabled = false;
+        btn.textContent = '🥁 Reveal the punchline!';
+        inp.disabled = false;
+        alert(msg);
+        return;
+      }
+      submittedGuess = guess;
+      fetchedPunchline = r.data.punchline;
+      fetchedGrade = r.data.grade;
+
+      // Replace form with result
+      btn.style.display = 'none';
+      inp.style.display = 'none';
+      var resultArea = document.getElementById('result-area');
+      if (resultArea) {
+        resultArea.outerHTML = buildResultHtml(guess, fetchedPunchline, fetchedGrade, false);
+      }
+    })
+    .catch(function (err) {
+      btn.disabled = false;
+      btn.textContent = '🥁 Reveal the punchline!';
+      inp.disabled = false;
+      alert('Network error — please try again');
+    });
+  };
+
+  // ── Share score ───────────────────────────────────────────────────────────
+
+  window.shareScore = function (grade) {
+    var gm = gradeFor(grade);
+    var text = gm.emoji + ' I scored "' + gm.label + '" on the Dad Joke Challenge!\n'
+      + 'Can you do better? ' + location.href;
+    if (navigator.share) {
+      navigator.share({ title: 'Dad Joke Challenge', text: text, url: location.href })
+        .catch(function () {});
+    } else {
+      navigator.clipboard.writeText(text)
+        .then(function () {
+          var btn = document.getElementById('challenge-share-btn');
+          if (btn) {
+            var orig = btn.textContent;
+            btn.textContent = '✅ Copied!';
+            setTimeout(function () { btn.textContent = orig; }, 2000);
+          }
+        })
+        .catch(function () {
+          prompt('Copy your score link:', text);
+        });
+    }
+  };
+
+  // ── HTML escape ───────────────────────────────────────────────────────────
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
+  }
+
+  // ── Boot ─────────────────────────────────────────────────────────────────
+
+  fetch('/api/challenges/' + encodeURIComponent(token))
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
+    .then(function (r) {
+      if (r.status === 410) { renderError('⏰', 'Challenge expired', 'This challenge link expired after 7 days.'); return; }
+      if (r.status === 404) { renderError('🤷', 'Challenge not found', 'This link doesn\'t exist or has already been cleaned up.'); return; }
+      if (!r.ok) { renderError('😬', 'Something went wrong', r.data.error || ''); return; }
+      renderChallenge(r.data);
+    })
+    .catch(function () {
+      renderError('📡', 'Network error', 'Could not load the challenge. Please try again.');
+    });
+
+})();
+</script>
+
+</body>
+</html>
