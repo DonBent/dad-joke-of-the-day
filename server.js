@@ -23,6 +23,7 @@ const DUEL_FILE = process.env.DUEL_FILE || path.join(__dirname, 'duel.json');
 const IMPORT_PENDING_FILE = process.env.IMPORT_PENDING_FILE || path.join(__dirname, 'import-pending.json');
 const PASSPORTS_FILE = process.env.PASSPORTS_FILE || path.join(__dirname, 'passports.json');
 const TRENDING_EVENTS_FILE = process.env.TRENDING_EVENTS_FILE || path.join(__dirname, 'trending-events.json');
+const VOTE_LOG_FILE = process.env.VOTE_LOG_FILE || path.join(__dirname, 'vote-log.json');
 
 // UUID v4 validation regex
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -196,6 +197,7 @@ app.post('/api/joke/:id/upvote', (req, res) => {
   if (!allJokes().find(j => j.id === id)) return res.status(404).json({ error: 'Joke not found' });
   votes[id] = (votes[id] || 0) + 1;
   saveVotes();
+  appendVoteLog({ jokeId: id, direction: 'up', at: new Date().toISOString() });
   appendTrendingEvent({ type: 'vote', jokeId: id, at: new Date().toISOString() });
   // Write to passport if token present
   const pToken = req.headers['x-passport-token'] || req.query.passport;
@@ -327,6 +329,11 @@ app.post('/api/admin/freeze-hall-of-fame', adminAuth, (req, res) => {
 // Serve /hall-of-fame page
 app.get('/hall-of-fame', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'hall-of-fame.html'));
+});
+
+// Serve /best-of-year page (v29)
+app.get('/best-of-year', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'best-of-year.html'));
 });
 
 // Top jokes leaderboard
@@ -505,6 +512,12 @@ function appendTrendingEvent(entry) {
   const events = readTrendingEvents();
   events.push(entry);
   writeJson(TRENDING_EVENTS_FILE, events);
+}
+
+function appendVoteLog(entry) {
+  const log = readJson(VOTE_LOG_FILE, []);
+  log.push(entry);
+  writeJson(VOTE_LOG_FILE, log);
 }
 
 /**
@@ -1188,6 +1201,85 @@ app.get('/api/passport/:token/recommendations', (req, res) => {
   res.json({ recommendations, strategy: 'affinity', totalUnrated });
 });
 
+// ── Joke of the Year (v29) ────────────────────────────────────────────────
+
+/**
+ * Pure function — find the best joke for a given calendar year.
+ * @param {number} year  4-digit year
+ * @param {Array}  allJokes  full jokes array [{id, joke, category}]
+ * @param {Array}  voteLog   array of {jokeId, direction, at} entries
+ * @returns winner object augmented with {netScore, upvotes, downvotes, year} or null
+ */
+function getBestOfYear(year, allJokes, voteLog) {
+  const scores = {}; // jokeId -> {up, down}
+  for (const v of voteLog) {
+    if (!v.at) continue;
+    const y = new Date(v.at).getFullYear();
+    if (y !== year) continue;
+    const jid = v.jokeId;
+    if (!scores[jid]) scores[jid] = { up: 0, down: 0 };
+    if (v.direction === 'down') scores[jid].down++;
+    else scores[jid].up++;
+  }
+  const jokeIds = Object.keys(scores).map(Number);
+  if (jokeIds.length === 0) return null;
+  const jokeMap = {};
+  for (const j of allJokes) jokeMap[j.id] = j;
+  let winner = null;
+  for (const jid of jokeIds) {
+    const j = jokeMap[jid];
+    if (!j) continue;
+    const { up, down } = scores[jid];
+    const net = up - down;
+    if (
+      winner === null ||
+      net > winner.netScore ||
+      (net === winner.netScore && jid < winner.id)
+    ) {
+      winner = { ...j, netScore: net, upvotes: up, downvotes: down, year };
+    }
+  }
+  return winner;
+}
+
+// GET /api/jokes/best-of-year[?year=YYYY]
+app.get('/api/jokes/best-of-year', (req, res) => {
+  const currentYear = new Date().getFullYear();
+  let year = currentYear;
+  if (req.query.year !== undefined) {
+    const parsed = parseInt(req.query.year, 10);
+    if (isNaN(parsed) || String(parsed) !== String(req.query.year).trim()) {
+      return res.status(400).json({ error: 'Invalid year' });
+    }
+    if (parsed > currentYear) {
+      return res.status(404).json({ error: 'No data for future year' });
+    }
+    year = parsed;
+  }
+  const voteLog = readJson(VOTE_LOG_FILE, []);
+  const jokes = allJokes();
+  const totalVotesInYear = voteLog.filter(v => v.at && new Date(v.at).getFullYear() === year).length;
+  if (totalVotesInYear === 0) {
+    return res.status(404).json({ error: `No votes recorded for ${year}` });
+  }
+  const winner = getBestOfYear(year, jokes, voteLog);
+  if (!winner) return res.status(404).json({ error: `No votes recorded for ${year}` });
+  res.json({
+    year,
+    winner: {
+      id: winner.id,
+      joke: winner.joke,
+      category: winner.category,
+      netScore: winner.netScore,
+      upvotes: winner.upvotes,
+      downvotes: winner.downvotes,
+    },
+    totalVotesInYear,
+    computedAt: new Date().toISOString(),
+  });
+});
+
+
 module.exports = app;
 module.exports._resetCommentRateLimitForTest = _resetCommentRateLimitForTest;
 module.exports._readPassports = readPassports;
@@ -1208,3 +1300,5 @@ module.exports.TRENDING_EVENTS_FILE = TRENDING_EVENTS_FILE;
 module.exports._readTrendingEvents = readTrendingEvents;
 module.exports.computeCategoryAffinity = computeCategoryAffinity;
 module.exports.getRecommendations = getRecommendations;
+module.exports.getBestOfYear = getBestOfYear;
+module.exports.VOTE_LOG_FILE = VOTE_LOG_FILE;
