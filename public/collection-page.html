@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Joke Collection — Dad Joke of the Day</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fff8f3;
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+      color: #333;
+    }
+    .top-bar {
+      max-width: 600px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-link { text-decoration: none; font-size: 1.5rem; }
+    .logo-sub { font-size: 0.72rem; color: #bbb; letter-spacing: 0.5px; text-transform: uppercase; }
+
+    .card {
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 2px 18px rgba(0,0,0,0.08);
+      padding: 24px 22px;
+      max-width: 600px;
+      margin: 0 auto 18px;
+    }
+
+    .collection-badge {
+      display: inline-block;
+      background: #fff3ec;
+      color: #ff6b35;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 10px;
+    }
+
+    .collection-title {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #222;
+      margin-bottom: 4px;
+    }
+
+    .collection-meta {
+      font-size: 0.82rem;
+      color: #aaa;
+      margin-bottom: 16px;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 0;
+    }
+
+    #collection-share-btn {
+      background: #ff6b35;
+      color: #fff;
+      border: none;
+      border-radius: 9px;
+      padding: 9px 20px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s;
+      touch-action: manipulation;
+      data-testid: collection-share-btn;
+    }
+    #collection-share-btn:hover { background: #e55a26; }
+
+    #collection-save-cta {
+      background: #fff3ec;
+      color: #ff6b35;
+      border: 1.5px solid #ffd5bf;
+      border-radius: 9px;
+      padding: 9px 18px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+      touch-action: manipulation;
+      display: none;
+    }
+    #collection-save-cta:hover { background: #ffe8d6; }
+
+    .jokes-section { max-width: 600px; margin: 0 auto; }
+    .jokes-section-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #bbb;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .joke-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.07);
+      padding: 16px 18px;
+      margin-bottom: 12px;
+    }
+    .joke-card-cat {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #ff6b35;
+      background: #fff3ec;
+      border-radius: 14px;
+      padding: 2px 8px;
+      margin-bottom: 8px;
+    }
+    .joke-card-text {
+      font-size: 0.98rem;
+      color: #333;
+      line-height: 1.6;
+    }
+    .joke-card-votes {
+      font-size: 0.78rem;
+      color: #ccc;
+      margin-top: 8px;
+    }
+
+    .state-msg { text-align: center; padding: 32px 0; color: #888; }
+    .state-emoji { font-size: 2.5rem; margin-bottom: 8px; }
+    .state-title { font-weight: 700; color: #444; font-size: 1.1rem; margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+
+<div class="top-bar">
+  <a class="logo-link" href="/">👴</a>
+  <div class="logo-sub">Dad Joke of the Day</div>
+</div>
+
+<div class="card" id="header-card">
+  <div class="state-msg" id="loading-state">
+    <div class="state-emoji">⏳</div>
+    <div class="state-title">Loading collection…</div>
+  </div>
+</div>
+
+<div class="jokes-section" id="jokes-section" style="display:none">
+  <div class="jokes-section-title" id="jokes-section-title"></div>
+  <div id="jokes-list"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var colId = location.pathname.split('/').pop();
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function renderError(emoji, title, detail) {
+    document.getElementById('header-card').innerHTML =
+      '<div class="state-msg"><div class="state-emoji">' + emoji + '</div>' +
+      '<div class="state-title">' + esc(title) + '</div>' +
+      (detail ? '<p style="margin-top:6px;font-size:0.85rem;">' + esc(detail) + '</p>' : '') +
+      '</div>';
+  }
+
+  function shareCollection(name) {
+    var text = '📚 Check out my Dad Joke collection "' + name + '"!\n' + location.href;
+    if (navigator.share) {
+      navigator.share({ title: name, text: text, url: location.href }).catch(function(){});
+    } else {
+      navigator.clipboard.writeText(location.href).then(function() {
+        var btn = document.getElementById('collection-share-btn');
+        if (btn) { var o = btn.textContent; btn.textContent = '✅ Copied!'; setTimeout(function(){ btn.textContent = o; }, 2000); }
+      }).catch(function(){ prompt('Copy collection link:', location.href); });
+    }
+  }
+
+  window._shareCollection = shareCollection;
+
+  function saveToPassport() {
+    // CTA: open main app and hint to save; simplest UX is link back home
+    window.location.href = '/#joke-collection-save';
+  }
+
+  fetch('/api/collections/' + encodeURIComponent(colId))
+    .then(function(r) { return r.json().then(function(d){ return { ok: r.ok, status: r.status, data: d }; }); })
+    .then(function(r) {
+      if (!r.ok) {
+        renderError(r.status === 404 ? '🤷' : '😬',
+          r.status === 404 ? 'Collection not found' : 'Error loading collection',
+          r.data.error || '');
+        return;
+      }
+      var col = r.data;
+
+      document.getElementById('header-card').innerHTML = [
+        '<div class="collection-badge">📚 Collection</div>',
+        '<div class="collection-title">' + esc(col.name) + '</div>',
+        '<div class="collection-meta">' + col.jokeCount + ' joke' + (col.jokeCount !== 1 ? 's' : '') + '</div>',
+        '<div class="action-row">',
+        '  <button id="collection-share-btn" data-testid="collection-share-btn" onclick="_shareCollection(' + JSON.stringify(col.name) + ')">📤 Share collection</button>',
+        '  <button id="collection-save-cta" onclick="saveToPassport()">🔖 Save to my Passport</button>',
+        '</div>',
+      ].join('\n');
+
+      if (col.jokes && col.jokes.length > 0) {
+        var sec = document.getElementById('jokes-section');
+        sec.style.display = 'block';
+        document.getElementById('jokes-section-title').textContent = col.jokeCount + ' joke' + (col.jokeCount !== 1 ? 's' : '') + ' in this collection';
+        var html = col.jokes.map(function(j) {
+          return '<div class="joke-card">' +
+            '<div class="joke-card-cat">' + esc(j.category || 'joke') + '</div>' +
+            '<div class="joke-card-text">' + esc(j.joke) + '</div>' +
+            '<div class="joke-card-votes">👍 ' + (j.votes || 0) + '</div>' +
+            '</div>';
+        }).join('');
+        document.getElementById('jokes-list').innerHTML = html;
+      } else {
+        var sec2 = document.getElementById('jokes-section');
+        sec2.style.display = 'block';
+        document.getElementById('jokes-section-title').textContent = 'No jokes in this collection yet';
+      }
+    })
+    .catch(function() { renderError('📡', 'Network error', 'Could not load the collection.'); });
+})();
+</script>
+</body>
+</html>

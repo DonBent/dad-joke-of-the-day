@@ -360,6 +360,14 @@
       <div id="joke-badge" class="badge">—</div>
       <button class="upvote-btn" id="upvote-btn" onclick="upvote()">👍 <span id="vote-count">0</span></button>
       <button class="save-joke-btn" id="save-joke-btn" data-testid="save-joke-button" onclick="toggleSaveJoke()" style="visibility:hidden">🔖 Save</button>
+      <div style="position:relative;display:inline-block;" id="collection-save-wrapper" style="visibility:hidden">
+        <button class="save-joke-btn" id="collection-save-joke-btn" data-testid="collection-save-joke-btn" onclick="toggleCollectionDropdown()" style="visibility:hidden">📚 + Collection</button>
+        <div id="collection-dropdown" style="display:none;position:absolute;top:110%;left:0;background:#fff;border:1.5px solid #ffd5bf;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.12);min-width:180px;z-index:200;padding:6px 0;">
+          <div id="collection-dropdown-list"></div>
+          <div style="border-top:1px solid #f0f0f0;margin:4px 0;"></div>
+          <button onclick="openCreateCollectionFromJoke()" style="display:block;width:100%;text-align:left;padding:8px 14px;font-size:0.88rem;background:none;border:none;cursor:pointer;color:#ff6b35;font-family:inherit;font-weight:600;">+ New collection</button>
+        </div>
+      </div>
     </div>
     <div class="reaction-bar" id="reaction-bar" role="group" aria-label="Joke reactions">
       <button class="reaction-btn" id="reaction-btn-laugh" data-testid="reaction-btn-laugh" data-reaction="laugh" aria-label="Laugh reaction" aria-pressed="false" onclick="reactToJoke('laugh')">😂 <span class="reaction-count" id="reaction-count-laugh">0</span></button>
@@ -537,6 +545,21 @@
         <div class="badges-empty-msg" id="badges-empty" data-testid="badges-empty" style="display:none">Earn your first badge by voting or saving a joke</div>
         <button id="share-badges-btn" data-testid="share-badges-button" onclick="shareBadges()" style="display:none">🥁 Share my Badges</button>
       </div>
+      <!-- Collections (v31) -->
+      <div class="collections-section" id="collections-section" style="margin-top:18px;border-top:1px solid #f0f0f0;padding-top:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:0.8rem;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.6px">📚 My Collections</div>
+          <button id="collection-create-btn" data-testid="collection-create-btn" onclick="openCreateCollection()" style="background:#fff3ec;color:#ff6b35;border:1.5px solid #ffd5bf;border-radius:8px;padding:4px 12px;font-size:0.8rem;font-weight:600;cursor:pointer;font-family:inherit;">+ New</button>
+        </div>
+        <div id="collection-create-form" style="display:none;margin-bottom:12px;">
+          <input id="collection-name-input" data-testid="collection-name-input" type="text" maxlength="60" placeholder="Collection name…" style="width:100%;border:2px solid #eee;border-radius:8px;padding:9px 12px;font-size:0.9rem;font-family:inherit;outline:none;margin-bottom:8px;" />
+          <div style="display:flex;gap:8px;">
+            <button onclick="submitCreateCollection()" style="flex:1;background:#ff6b35;color:#fff;border:none;border-radius:8px;padding:9px 0;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit;">Create</button>
+            <button onclick="cancelCreateCollection()" style="background:none;color:#bbb;border:1.5px solid #eee;border-radius:8px;padding:9px 14px;font-size:0.85rem;cursor:pointer;font-family:inherit;">Cancel</button>
+          </div>
+        </div>
+        <div id="collections-list"><div style="font-size:0.85rem;color:#ccc;padding:4px 0;">No collections yet.</div></div>
+      </div>
     </div>
     <div class="passport-footer">
       <button id="share-passport-btn" data-testid="share-passport-button" onclick="sharePassport()">🔗 Share my Passport</button>
@@ -581,6 +604,9 @@
       saveBtn.style.visibility = 'visible';
       saveBtn.classList.toggle('saved', !!data.userSaved);
       saveBtn.textContent = data.userSaved ? '🔖 Saved' : '🔖 Save';
+      // Show collection save button (v31)
+      const colSaveBtn = document.getElementById('collection-save-joke-btn');
+      if (colSaveBtn) colSaveBtn.style.visibility = 'visible';
       currentJokeId = data.id;
       // Render reactions
       const bar = document.getElementById('reaction-bar');
@@ -1289,6 +1315,169 @@
         setTimeout(() => { btn.textContent = '\uD83D\uDD17 Share my Passport'; btn.classList.remove('copied'); }, 2000);
       }).catch(() => prompt('Share this link:', url));
     };
+
+    // ── Collections (v31) ────────────────────────────────────────────────────
+
+    async function loadCollections(token) {
+      if (!token) { renderCollectionsList([]); return; }
+      try {
+        const res = await fetch(`/api/collections?passportToken=${encodeURIComponent(token)}`);
+        if (!res.ok) { renderCollectionsList([]); return; }
+        renderCollectionsList(await res.json(), token);
+      } catch(e) { renderCollectionsList([]); }
+    }
+
+    function renderCollectionsList(cols, token) {
+      const el = document.getElementById('collections-list');
+      if (!el) return;
+      if (!cols.length) {
+        el.innerHTML = '<div style="font-size:0.85rem;color:#ccc;padding:4px 0;">No collections yet.</div>';
+        return;
+      }
+      el.innerHTML = cols.map(c => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5;">
+          <a href="/collection/${encodeURIComponent(c.id)}" style="color:#333;text-decoration:none;font-size:0.9rem;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtmlStr(c.name)}</a>
+          <span style="font-size:0.75rem;color:#bbb;margin:0 8px;white-space:nowrap;">${c.jokeCount} joke${c.jokeCount !== 1 ? 's' : ''}</span>
+          <button data-testid="collection-share-btn" onclick="shareCollectionLink('${encodeURIComponent(c.id)}')" title="Share" style="background:none;border:none;cursor:pointer;font-size:1rem;padding:2px 4px;">📤</button>
+          <button data-testid="collection-delete-btn" data-cid="${c.id}" onclick="deleteCollection('${c.id}')" title="Delete" style="background:none;border:none;cursor:pointer;font-size:1rem;padding:2px 4px;">🗑️</button>
+        </div>
+      `).join('');
+    }
+
+    function escHtmlStr(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    window.openCreateCollection = function() {
+      const form = document.getElementById('collection-create-form');
+      if (form) { form.style.display = 'block'; const inp = document.getElementById('collection-name-input'); if (inp) inp.focus(); }
+    };
+    window.cancelCreateCollection = function() {
+      const form = document.getElementById('collection-create-form');
+      if (form) form.style.display = 'none';
+    };
+    window.submitCreateCollection = async function() {
+      const token = passportGetToken();
+      if (!token) return alert('No Passport found');
+      const inp = document.getElementById('collection-name-input');
+      const name = inp ? inp.value.trim() : '';
+      if (!name) return alert('Please enter a collection name');
+      try {
+        const res = await fetch('/api/collections', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ passportToken: token, name })
+        });
+        const data = await res.json();
+        if (!res.ok) return alert(data.error || 'Failed to create collection');
+        if (inp) inp.value = '';
+        window.cancelCreateCollection();
+        await loadCollections(token);
+        populateCollectionDropdown(token);
+      } catch(e) { alert('Network error'); }
+    };
+
+    window.deleteCollection = async function(colId) {
+      if (!confirm('Delete this collection?')) return;
+      const token = passportGetToken();
+      if (!token) return;
+      try {
+        const res = await fetch(`/api/collections/${encodeURIComponent(colId)}`, {
+          method: 'DELETE',
+          headers: { 'x-passport-token': token }
+        });
+        if (!res.ok) { const d = await res.json(); alert(d.error || 'Delete failed'); return; }
+        await loadCollections(token);
+      } catch(e) { alert('Network error'); }
+    };
+
+    window.shareCollectionLink = function(colIdEncoded) {
+      const url = `${window.location.origin}/collection/${colIdEncoded}`;
+      if (navigator.share) {
+        navigator.share({ title: 'My Dad Joke Collection', url }).catch(function(){});
+      } else {
+        navigator.clipboard.writeText(url).then(function(){
+          alert('Link copied!');
+        }).catch(function(){ prompt('Copy link:', url); });
+      }
+    };
+
+    // ── Save to collection dropdown ────────────────────────────────────────
+
+    async function populateCollectionDropdown(token) {
+      const listEl = document.getElementById('collection-dropdown-list');
+      if (!listEl) return;
+      if (!token) { listEl.innerHTML = '<div style="padding:8px 14px;font-size:0.85rem;color:#aaa;">Open Passport first</div>'; return; }
+      try {
+        const res = await fetch(`/api/collections?passportToken=${encodeURIComponent(token)}`);
+        const cols = res.ok ? await res.json() : [];
+        if (!cols.length) {
+          listEl.innerHTML = '<div style="padding:8px 14px;font-size:0.85rem;color:#aaa;">No collections yet</div>';
+          return;
+        }
+        listEl.innerHTML = cols.map(c =>
+          `<button onclick="addJokeToCollection('${c.id}')" style="display:block;width:100%;text-align:left;padding:8px 14px;font-size:0.88rem;background:none;border:none;cursor:pointer;color:#333;font-family:inherit;">${escHtmlStr(c.name)} <span style="color:#ccc;font-size:0.78rem;">(${c.jokeCount})</span></button>`
+        ).join('');
+      } catch(e) { listEl.innerHTML = ''; }
+    }
+
+    window.toggleCollectionDropdown = async function() {
+      const dd = document.getElementById('collection-dropdown');
+      if (!dd) return;
+      if (dd.style.display === 'block') { dd.style.display = 'none'; return; }
+      dd.style.display = 'block';
+      const token = passportGetToken();
+      await populateCollectionDropdown(token);
+    };
+
+    window.addJokeToCollection = async function(colId) {
+      const token = passportGetToken();
+      if (!token || !currentJokeId) return;
+      const dd = document.getElementById('collection-dropdown');
+      if (dd) dd.style.display = 'none';
+      try {
+        const res = await fetch(`/api/collections/${encodeURIComponent(colId)}/jokes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ passportToken: token, jokeId: currentJokeId })
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Could not add joke'); return; }
+        const btn = document.getElementById('collection-save-joke-btn');
+        if (btn) { const o = btn.textContent; btn.textContent = '\u2705 Added!'; setTimeout(() => { btn.textContent = o; }, 2000); }
+        await loadCollections(token);
+      } catch(e) { alert('Network error'); }
+    };
+
+    window.openCreateCollectionFromJoke = function() {
+      const dd = document.getElementById('collection-dropdown');
+      if (dd) dd.style.display = 'none';
+      window.openPassport && window.openPassport();
+      setTimeout(() => window.openCreateCollection && window.openCreateCollection(), 300);
+    };
+
+    // Close collection dropdown on outside click
+    document.addEventListener('click', function(e) {
+      const dd = document.getElementById('collection-dropdown');
+      const wrapper = document.getElementById('collection-save-wrapper');
+      if (dd && dd.style.display === 'block' && wrapper && !wrapper.contains(e.target)) {
+        dd.style.display = 'none';
+      }
+    });
+
+    // Patch openPassport to also load collections
+    const _origOpenPassport = window.openPassport;
+    window.openPassport = async function() {
+      if (_origOpenPassport) await _origOpenPassport();
+      const token = passportGetToken();
+      if (token) loadCollections(token);
+    };
+
+    // Expose collection-save btn visibility in showJoke
+    const _origShowJoke = window.showJoke;
+    if (_origShowJoke) {
+      // showJoke is defined inline below; we patch after script load instead
+    }
   })();
   </script>
   <script>
