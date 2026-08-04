@@ -39,9 +39,11 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 - v28 — "For You" personalised joke feed: computeCategoryAffinity() + getRecommendations() pure functions; GET /api/passport/:token/recommendations returns affinity/fallback strategy + totalUnrated; ✨ For You tab with 10 joke cards, save buttons, refresh, fallback hint; no new storage [CID-20260804-DDF72BDE]
 
+- v29 — "Joke of the Year" annual retrospective: getBestOfYear() pure function; GET /api/jokes/best-of-year[?year=YYYY] + 400/404 error codes; vote-log.json timestamped log (non-breaking); /best-of-year page with year selector, trophy card, Web Share API, empty state; footer link in index.html [CID-20260804-7BD05379]
+
 ## Proposed (in flight)
 
-- v29 — "Joke of the Year" annual retrospective: GET /api/jokes/best-of-year?year=YYYY returns the highest net-voted joke for the given calendar year; dedicated /best-of-year page with year selector, trophy display, and shareable card; auto-computed from votes.json; completes the temporal recognition arc (daily → weekly → monthly → annual) [CID-20260804-7BD05379]
+_(none)_
 
 ## Rejected / Not pursuing
 

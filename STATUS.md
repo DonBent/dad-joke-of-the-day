@@ -11,10 +11,10 @@
 
 **Active:** YES
 **IdeationExhausted:** NO
-**Current Cycle Correlation ID:** CID-20260804-7BD05379
-**Stage:** DEVELOPMENT
-**Last Release Version:** v28
-**Last Release At:** 2026-08-03
+**Current Cycle Correlation ID:** (none — awaiting next ideation cycle)
+**Stage:** IDLE
+**Last Release Version:** v29
+**Last Release At:** 2026-08-04
 
 ---
 
@@ -23,6 +23,7 @@
 - Port 3040 reserved in PORT-REGISTRY.md
 - v1–v17 shipped: daily joke rotation, voting, weighted random, shareable links, user submissions + moderation, search, stats, RSS feed, submission rate limiting, email digest, streak badge, weekly leaderboard, hall of fame, joke tag/category filter, contributor dashboard (My Jokes), embeddable widget & snippet generator, Guess the Punchline challenge mode, emoji reaction bar (😂 😬 🥁 🫠)
 - Custom jokes (user-submitted, approved) live in custom-jokes.json; main pool in jokes.json
+- v29: Joke of the Year — getBestOfYear(), GET /api/jokes/best-of-year, vote-log.json, /best-of-year page, year selector, footer link
 - v28: For You tab — computeCategoryAffinity() + getRecommendations(), affinity/fallback strategy, GET /api/passport/:token/recommendations, 773 unrated jokes surfaced
 - v27: Trending Now — GET /api/jokes/trending, time-decay score, trending-events.json, 60 s poll, flame bar, localStorage collapse state
 - v26: Groan Badges — 9 milestone badges via computeBadges(), Passport panel chips + share card, GET /api/passport/:token/badges
