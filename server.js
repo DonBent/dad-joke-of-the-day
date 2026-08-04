@@ -25,6 +25,7 @@ const PASSPORTS_FILE = process.env.PASSPORTS_FILE || path.join(__dirname, 'passp
 const TRENDING_EVENTS_FILE = process.env.TRENDING_EVENTS_FILE || path.join(__dirname, 'trending-events.json');
 const VOTE_LOG_FILE = process.env.VOTE_LOG_FILE || path.join(__dirname, 'vote-log.json');
 const CHALLENGES_FILE = process.env.CHALLENGES_FILE || path.join(__dirname, 'challenges.json');
+const COLLECTIONS_FILE = process.env.COLLECTIONS_FILE || path.join(__dirname, 'collections.json');
 
 // UUID v4 validation regex
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -1410,6 +1411,163 @@ app.get('/challenge/:token', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'challenge-page.html'));
 });
 
+// ── User Joke Collections (v31) ────────────────────────────────────────────
+
+const COLLECTION_MAX_PER_PASSPORT = 10;
+const COLLECTION_MAX_JOKES = 50;
+const COLLECTION_NAME_MAX = 60;
+const COLLECTION_RATE_LIMIT_MAX = 20;
+const COLLECTION_RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+
+const collectionMutateRateLimit = {}; // ip -> [timestamps]
+
+function checkCollectionRateLimit(ip) {
+  const now = Date.now();
+  const times = (collectionMutateRateLimit[ip] || []).filter(t => now - t < COLLECTION_RATE_LIMIT_WINDOW);
+  collectionMutateRateLimit[ip] = times;
+  if (times.length >= COLLECTION_RATE_LIMIT_MAX) return false;
+  times.push(now);
+  return true;
+}
+
+function readCollections() { return readJson(COLLECTIONS_FILE, []); }
+function saveCollections(data) { writeJson(COLLECTIONS_FILE, data); }
+
+// POST /api/collections
+app.post('/api/collections', (req, res) => {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  if (!checkCollectionRateLimit(ip)) return res.status(429).json({ error: 'Too many requests' });
+
+  const { passportToken, name } = req.body || {};
+  if (!passportToken || !UUID_V4_RE.test(passportToken)) return res.status(400).json({ error: 'Valid passportToken required' });
+  if (!name || typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'name required' });
+  if (name.trim().length > COLLECTION_NAME_MAX) return res.status(400).json({ error: `name must be ${COLLECTION_NAME_MAX} chars or fewer` });
+
+  const passports = readPassports();
+  if (!passports[passportToken]) return res.status(403).json({ error: 'Passport not found' });
+
+  const collections = readCollections();
+  const owned = collections.filter(c => c.passportToken === passportToken);
+  if (owned.length >= COLLECTION_MAX_PER_PASSPORT) {
+    return res.status(422).json({ error: `Maximum ${COLLECTION_MAX_PER_PASSPORT} collections per Passport` });
+  }
+
+  const now = new Date().toISOString();
+  const collection = {
+    id: crypto.randomUUID(),
+    passportToken,
+    name: name.trim(),
+    jokeIds: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+  collections.push(collection);
+  saveCollections(collections);
+  res.status(201).json({ id: collection.id, name: collection.name, jokeCount: 0, createdAt: collection.createdAt, updatedAt: collection.updatedAt });
+});
+
+// GET /api/collections?passportToken=:token
+app.get('/api/collections', (req, res) => {
+  const { passportToken } = req.query;
+  if (!passportToken || !UUID_V4_RE.test(passportToken)) return res.status(400).json({ error: 'Valid passportToken required' });
+  const collections = readCollections();
+  const owned = collections
+    .filter(c => c.passportToken === passportToken)
+    .map(c => ({ id: c.id, name: c.name, jokeCount: c.jokeIds.length, updatedAt: c.updatedAt }));
+  res.json(owned);
+});
+
+// GET /api/collections/:id
+app.get('/api/collections/:id', (req, res) => {
+  if (!UUID_V4_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid id' });
+  const collections = readCollections();
+  const col = collections.find(c => c.id === req.params.id);
+  if (!col) return res.status(404).json({ error: 'Collection not found' });
+  const jokes = allJokes();
+  const jokeMap = {};
+  jokes.forEach(j => { jokeMap[j.id] = j; });
+  const fullJokes = col.jokeIds.map(jid => jokeMap[jid]).filter(Boolean).map(jokeWithVotes);
+  res.json({ id: col.id, name: col.name, jokes: fullJokes, jokeCount: fullJokes.length, createdAt: col.createdAt, updatedAt: col.updatedAt });
+});
+
+// POST /api/collections/:id/jokes
+app.post('/api/collections/:id/jokes', (req, res) => {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  if (!checkCollectionRateLimit(ip)) return res.status(429).json({ error: 'Too many requests' });
+  if (!UUID_V4_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid id' });
+
+  const { passportToken, jokeId } = req.body || {};
+  if (!passportToken || !UUID_V4_RE.test(passportToken)) return res.status(400).json({ error: 'Valid passportToken required' });
+  if (jokeId === undefined || jokeId === null) return res.status(400).json({ error: 'jokeId required' });
+
+  const joke = allJokes().find(j => j.id === parseInt(jokeId));
+  if (!joke) return res.status(404).json({ error: 'Joke not found' });
+
+  const collections = readCollections();
+  const idx = collections.findIndex(c => c.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Collection not found' });
+  const col = collections[idx];
+  if (col.passportToken !== passportToken) return res.status(403).json({ error: 'Forbidden' });
+  if (col.jokeIds.includes(joke.id)) return res.status(409).json({ error: 'Joke already in collection' });
+  if (col.jokeIds.length >= COLLECTION_MAX_JOKES) return res.status(422).json({ error: `Maximum ${COLLECTION_MAX_JOKES} jokes per collection` });
+
+  col.jokeIds.push(joke.id);
+  col.updatedAt = new Date().toISOString();
+  collections[idx] = col;
+  saveCollections(collections);
+  res.json({ id: col.id, jokeCount: col.jokeIds.length });
+});
+
+// DELETE /api/collections/:id/jokes/:jokeId
+app.delete('/api/collections/:id/jokes/:jokeId', (req, res) => {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  if (!checkCollectionRateLimit(ip)) return res.status(429).json({ error: 'Too many requests' });
+  if (!UUID_V4_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid id' });
+
+  const passportToken = req.headers['x-passport-token'] || req.query.passport;
+  if (!passportToken || !UUID_V4_RE.test(passportToken)) return res.status(400).json({ error: 'Valid passportToken required' });
+
+  const collections = readCollections();
+  const idx = collections.findIndex(c => c.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Collection not found' });
+  const col = collections[idx];
+  if (col.passportToken !== passportToken) return res.status(403).json({ error: 'Forbidden' });
+
+  const jokeId = parseInt(req.params.jokeId);
+  const before = col.jokeIds.length;
+  col.jokeIds = col.jokeIds.filter(jid => jid !== jokeId);
+  if (col.jokeIds.length === before) return res.status(404).json({ error: 'Joke not in collection' });
+  col.updatedAt = new Date().toISOString();
+  collections[idx] = col;
+  saveCollections(collections);
+  res.json({ id: col.id, jokeCount: col.jokeIds.length });
+});
+
+// DELETE /api/collections/:id
+app.delete('/api/collections/:id', (req, res) => {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  if (!checkCollectionRateLimit(ip)) return res.status(429).json({ error: 'Too many requests' });
+  if (!UUID_V4_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid id' });
+
+  const passportToken = req.headers['x-passport-token'] || req.query.passport;
+  if (!passportToken || !UUID_V4_RE.test(passportToken)) return res.status(400).json({ error: 'Valid passportToken required' });
+
+  const collections = readCollections();
+  const idx = collections.findIndex(c => c.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Collection not found' });
+  if (collections[idx].passportToken !== passportToken) return res.status(403).json({ error: 'Forbidden' });
+
+  collections.splice(idx, 1);
+  saveCollections(collections);
+  res.json({ deleted: true });
+});
+
+// GET /collection/:id — serve collection page
+app.get('/collection/:id', (req, res) => {
+  if (!UUID_V4_RE.test(req.params.id)) return res.status(400).send('Invalid collection id');
+  res.sendFile(path.join(__dirname, 'public', 'collection-page.html'));
+});
+
 module.exports = app;
 module.exports._resetCommentRateLimitForTest = _resetCommentRateLimitForTest;
 module.exports._readPassports = readPassports;
@@ -1437,3 +1595,9 @@ module.exports._readChallenges = readChallenges;
 module.exports._saveChallenges = saveChallenges;
 module.exports.gradeGuess = gradeGuess;
 module.exports.splitJokeText = splitJokeText;
+module.exports.COLLECTIONS_FILE = COLLECTIONS_FILE;
+module.exports._readCollections = readCollections;
+module.exports._saveCollections = saveCollections;
+module.exports.COLLECTION_MAX_PER_PASSPORT = COLLECTION_MAX_PER_PASSPORT;
+module.exports.COLLECTION_MAX_JOKES = COLLECTION_MAX_JOKES;
+module.exports._resetCollectionRateLimitForTest = function() { Object.keys(collectionMutateRateLimit).forEach(k => delete collectionMutateRateLimit[k]); };

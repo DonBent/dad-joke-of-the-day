@@ -41,10 +41,13 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 - v29 — "Joke of the Year" annual retrospective: getBestOfYear() pure function; GET /api/jokes/best-of-year[?year=YYYY] + 400/404 error codes; vote-log.json timestamped log (non-breaking); /best-of-year page with year selector, trophy card, Web Share API, empty state; footer link in index.html [CID-20260804-7BD05379]
 - v30 — "Challenge a Friend" joke duel link: generate a shareable one-time challenge URL for any joke that shows only the setup; the recipient must type a guess before the punchline is revealed; result screen shows their guess vs. real punchline with emoji rating + reaction + share-your-score card — turns passive joke consumption into active social play without requiring auth [CID-20260804-F3A12E91]
+- v31 — User joke collections: Passport-powered curated joke sets; POST/GET/DELETE /api/collections + /api/collections/:id/jokes; public /collection/:id page; 10 collections/Passport, 50 jokes/collection; save-to-collection dropdown on joke cards; Collections section in Passport panel [CID-20260804-9C4B1F37]
 
 ## Proposed (in flight)
 
 _(none)_
+
+- v31 — User joke collections: Passport-powered curated sets of jokes from the pool; create/name/add-to/remove-from a collection, stored in collections.json keyed by Passport token; shareable /collection/:id URL; fills the gap between passive browsing and active curation, extends Passport utility, and creates a new virality vector beyond single jokes [CID-20260804-9C4B1F37]
 
 
 ## Rejected / Not pursuing
