@@ -45,9 +45,7 @@ proposing anything new so it never re-proposes a shipped or rejected idea.
 
 ## Proposed (in flight)
 
-_(none)_
-
-- v31 — User joke collections: Passport-powered curated sets of jokes from the pool; create/name/add-to/remove-from a collection, stored in collections.json keyed by Passport token; shareable /collection/:id URL; fills the gap between passive browsing and active curation, extends Passport utility, and creates a new virality vector beyond single jokes [CID-20260804-9C4B1F37]
+- v32 — Groan-O-Meter: a 1–5 groan-intensity vote (😐😏😬🙈🤮) per joke, separate from the upvote quality signal; stored in groan-ratings.json keyed by jokeId; one rating per IP per joke, toggleable; GET /api/jokes/:id/groan returns counts + weighted groan score; groan score surfaces on Today's Vibe strip and feeds a new "Most Groan-Worthy" leaderboard tab — adds a second community data dimension that directly reflects the product's founding "groan-worthy" identity [CID-20260805-49971341]
 
 
 ## Rejected / Not pursuing
