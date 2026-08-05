@@ -113,6 +113,7 @@ describe('POST /api/jokes/:id/comments', () => {
 describe('GET /api/jokes/:id/comments', () => {
   let jokeId;
   beforeAll(async () => { jokeId = await getJokeId(); });
+  beforeEach(() => { _resetCommentRateLimitForTest(); });
 
   it('returns 404 for unknown joke id', async () => {
     const res = await request(app).get('/api/jokes/999999/comments');
@@ -168,6 +169,7 @@ describe('GET /api/jokes/:id/comments', () => {
 describe('Admin comment moderation', () => {
   let jokeId;
   beforeAll(async () => { jokeId = await getJokeId(); });
+  beforeEach(() => { _resetCommentRateLimitForTest(); });
 
   it('GET /api/admin/comments requires admin token', async () => {
     const res = await request(app).get('/api/admin/comments');
