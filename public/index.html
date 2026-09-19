@@ -181,6 +181,38 @@
     /* Trending Now (v27) */
     .trending-panel { margin: 14px 0 4px; border: 1px solid #ffe0b2; border-radius: 10px; background: #fffbf5; overflow: hidden; }
     .trending-panel.hidden { display: none; }
+
+    /* Groan-O-Meter (v32) */
+    .groan-bar { display: flex; gap: 6px; align-items: center; margin: 10px 0 4px; flex-wrap: wrap; }
+    .groan-btn { background: none; border: 1.5px solid #e0e0e0; border-radius: 20px; padding: 4px 10px; font-size: 1.25rem; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .groan-btn:hover { border-color: #ff6b35; background: #fff3ec; }
+    .groan-btn.selected { border-color: #ff6b35; background: #fff3ec; }
+    .groan-score-display { font-size: 0.82rem; color: #888; margin-left: 4px; }
+    .groan-score-display span { font-weight: 600; color: #e07b00; }
+    .groan-panel { margin: 14px 0 4px; border: 1px solid #ffd5bf; border-radius: 10px; background: #fffbf5; overflow: hidden; }
+    .groan-panel.hidden { display: none; }
+    .groan-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; cursor: pointer; font-weight: 600; font-size: 0.9rem; user-select: none; }
+    .groan-panel-header:hover { background: #fff3ec; }
+    .groan-chevron { transition: transform 0.2s; }
+    .groan-panel.open .groan-chevron { transform: rotate(180deg); }
+    .groan-panel-body { display: none; padding: 0 12px 12px; }
+    .groan-panel.open .groan-panel-body { display: block; }
+    .groan-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f5e6d8; font-size: 0.84rem; }
+    .groan-item:last-child { border-bottom: none; }
+    .groan-item-rank { font-weight: 700; color: #e07b00; min-width: 18px; }
+    .groan-item-text { flex: 1; color: #333; line-height: 1.4; }
+    .groan-item-score { white-space: nowrap; color: #ff6b35; font-weight: 700; font-size: 0.82rem; }
+    .groan-score-bar { height: 5px; background: #ffd5bf; border-radius: 3px; margin-top: 4px; }
+    .groan-score-bar-fill { height: 5px; background: #ff6b35; border-radius: 3px; transition: width 0.3s; }
+    .groan-empty-msg { color: #aaa; font-size: 0.85rem; padding: 8px 0; }
+    @media (prefers-color-scheme: dark) {
+      .groan-btn { background: #1e1e1e; border-color: #333; color: #ccc; }
+      .groan-btn:hover, .groan-btn.selected { border-color: #ff6b35; background: rgba(255,107,53,0.1); }
+      .groan-panel { border-color: #3a2810; background: #1e1a14; }
+      .groan-item { border-bottom-color: #2e2010; }
+      .groan-item-text { color: #ccc; }
+    }
+    .trending-panel.hidden { display: none; }
     .trending-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; cursor: pointer; user-select: none; }
     .trending-header-left { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.9rem; color: #b35c00; }
     .trending-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #ff6b35; display: inline-block; animation: pulse 2s infinite; }
@@ -375,6 +407,15 @@
       <button class="reaction-btn" id="reaction-btn-drums" data-testid="reaction-btn-drums" data-reaction="drums" aria-label="Rimshot reaction" aria-pressed="false" onclick="reactToJoke('drums')">🥁 <span class="reaction-count" id="reaction-count-drums">0</span></button>
       <button class="reaction-btn" id="reaction-btn-melt" data-testid="reaction-btn-melt" data-reaction="melt" aria-label="Face melting reaction" aria-pressed="false" onclick="reactToJoke('melt')">🫠 <span class="reaction-count" id="reaction-count-melt">0</span></button>
     </div>
+    <!-- Groan-O-Meter widget (v32) -->
+    <div class="groan-bar" id="groan-bar" style="display:none;">
+      <button class="groan-btn" id="groan-btn-1" data-testid="groan-btn-1" aria-label="Groan level 1" onclick="rateGroan(1)">😐</button>
+      <button class="groan-btn" id="groan-btn-2" data-testid="groan-btn-2" aria-label="Groan level 2" onclick="rateGroan(2)">😏</button>
+      <button class="groan-btn" id="groan-btn-3" data-testid="groan-btn-3" aria-label="Groan level 3" onclick="rateGroan(3)">😬</button>
+      <button class="groan-btn" id="groan-btn-4" data-testid="groan-btn-4" aria-label="Groan level 4" onclick="rateGroan(4)">🙈</button>
+      <button class="groan-btn" id="groan-btn-5" data-testid="groan-btn-5" aria-label="Groan level 5" onclick="rateGroan(5)">🤮</button>
+      <span class="groan-score-display" id="groan-score-display" data-testid="groan-score"></span>
+    </div>
     <!-- streak badge injected by v10 -->
     <div id="streak-badge" data-testid="streak-badge" style="display:none;margin-bottom:16px;">
       🔥 <span data-testid="streak-count" id="streak-count">1</span>-day streak!
@@ -407,6 +448,10 @@
       <div class="vibe-item">
         <span class="vibe-value" id="vibe-comment-count" data-testid="vibe-comment-count">&mdash;</span>
       </div>
+      <div class="vibe-item" id="vibe-groan-item" style="display:none;">
+        <span class="vibe-label">Groan</span>
+        <span class="vibe-value" id="vibe-groan-score" data-testid="vibe-groan-score">&mdash;</span>
+      </div>
     </div>
     <!-- Trending Now panel (v27) -->
     <div class="trending-panel hidden" id="trending-panel" data-testid="trending-panel">
@@ -421,6 +466,18 @@
         <div class="trending-window-label" id="trending-window-label" data-testid="trending-window-label">in the last 24 hours</div>
         <div id="trending-list">
           <div class="trending-empty-msg" id="trending-empty" data-testid="trending-empty">No groans yet today — be the first to vote!</div>
+        </div>
+      </div>
+    </div>
+    <!-- Most Groan-Worthy panel (v32) -->
+    <div class="groan-panel hidden" id="groan-panel" data-testid="groan-panel">
+      <div class="groan-panel-header" onclick="toggleGroanPanel()">
+        <span>🤮 Most Groan-Worthy</span>
+        <span class="groan-chevron">&#9660;</span>
+      </div>
+      <div class="groan-panel-body">
+        <div id="groan-most-list">
+          <div class="groan-empty-msg" id="groan-most-empty" data-testid="groan-most-empty">No groans ranked yet &mdash; be the first to rate!</div>
         </div>
       </div>
     </div>
@@ -627,6 +684,8 @@
       history.replaceState(null, '', `#joke-${data.id}`);
       // v19: show roast panel for this joke
       if (typeof window.showRoastPanel === 'function') window.showRoastPanel(data.id);
+      // v32: show Groan-O-Meter widget for this joke
+      if (typeof window.initGroanBar === 'function') window.initGroanBar(data.id);
       const dateEl = document.getElementById('joke-date');
       if (data.date) { dateEl.textContent = data.date; dateEl.style.visibility = 'visible'; }
       else dateEl.style.visibility = 'hidden';
@@ -821,6 +880,8 @@
         }
         // v19: update roast panel for this random joke
         if (typeof window.showRoastPanel === 'function') window.showRoastPanel(data.id);
+        // v32: update Groan-O-Meter widget for this random joke
+        if (typeof window.initGroanBar === 'function') window.initGroanBar(data.id);
       } catch (e) {
         textEl.className = 'loading';
         textEl.textContent = 'Failed to load joke — try again!';
@@ -918,6 +979,18 @@
       flashAndSet('vibe-score', fmtScore(data.score));
       flashAndSet('vibe-dominant-reaction', data.dominantReaction || '\u2014');
       flashAndSet('vibe-comment-count', fmtComments(data.commentCount));
+      // Groan-O-Meter enrichment (v32)
+      const groanItem = document.getElementById('vibe-groan-item');
+      if (groanItem) {
+        if (data.groanScore != null) {
+          groanItem.style.display = '';
+          const emojis = [null, '\ud83d\ude10', '\ud83d\ude0f', '\ud83d\ude2c', '\ud83d\ude48', '\ud83e\udd2e'];
+          const emoji = emojis[Math.round(data.groanScore)] || '';
+          flashAndSet('vibe-groan-score', emoji + ' ' + data.groanScore.toFixed(1) + '/5');
+        } else {
+          groanItem.style.display = 'none';
+        }
+      }
       _lastVibe = data;
     }
 
@@ -1062,6 +1135,181 @@
         }
       };
       startTrendingPolling();
+    });
+  })();
+  </script>
+
+  <!-- Groan-O-Meter JS (v32) -->
+  <script>
+  (function() {
+    const GROAN_EMOJIS = [null, '😐', '😏', '😬', '🙈', '🤮'];
+    const GROAN_POLL_INTERVAL_MS = 60000;
+    let _groanPollTimer = null;
+    let _currentGroanJokeId = null;
+
+    function getStoredGroanRating(jokeId) {
+      try { return parseInt(localStorage.getItem('groan_' + jokeId)) || null; } catch { return null; }
+    }
+    function setStoredGroanRating(jokeId, rating) {
+      try {
+        if (rating == null) localStorage.removeItem('groan_' + jokeId);
+        else localStorage.setItem('groan_' + jokeId, String(rating));
+      } catch {}
+    }
+
+    function renderGroanButtons(jokeId, selectedRating) {
+      for (let r = 1; r <= 5; r++) {
+        const btn = document.getElementById('groan-btn-' + r);
+        if (!btn) continue;
+        if (selectedRating === r) btn.classList.add('selected');
+        else btn.classList.remove('selected');
+      }
+    }
+
+    function renderGroanScore(weightedScore, totalRatings) {
+      const el = document.getElementById('groan-score-display');
+      if (!el) return;
+      if (weightedScore == null || totalRatings === 0) {
+        el.innerHTML = '<span style="color:#bbb;font-size:0.78rem;">No ratings yet</span>';
+      } else {
+        const emoji = GROAN_EMOJIS[Math.round(weightedScore)] || '';
+        el.innerHTML = 'Groan level: <span>' + emoji + ' ' + weightedScore.toFixed(1) + '/5</span> <span style="color:#bbb;">('+totalRatings+')</span>';
+      }
+    }
+
+    window.rateGroan = async function(rating) {
+      const jokeId = _currentGroanJokeId;
+      if (!jokeId) return;
+      const stored = getStoredGroanRating(jokeId);
+      // Optimistic UI
+      if (stored === rating) {
+        setStoredGroanRating(jokeId, null);
+        renderGroanButtons(jokeId, null);
+      } else {
+        setStoredGroanRating(jokeId, rating);
+        renderGroanButtons(jokeId, rating);
+      }
+      try {
+        const res = await fetch('/api/jokes/' + jokeId + '/groan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rating })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const actualRating = data.removed ? null : data.rating;
+          setStoredGroanRating(jokeId, actualRating);
+          renderGroanButtons(jokeId, actualRating);
+          renderGroanScore(data.weightedScore, data.removed ? null :
+            (data.counts ? Object.values(data.counts).reduce((a,b)=>a+b,0) : null));
+        }
+      } catch(e) {}
+    };
+
+    async function fetchGroanForJoke(jokeId) {
+      if (!jokeId) return;
+      try {
+        const res = await fetch('/api/jokes/' + jokeId + '/groan', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        renderGroanScore(data.weightedScore, data.totalRatings);
+      } catch(e) {}
+    }
+
+    window.initGroanBar = function(jokeId) {
+      _currentGroanJokeId = jokeId;
+      const bar = document.getElementById('groan-bar');
+      if (bar) bar.style.display = '';
+      const stored = getStoredGroanRating(jokeId);
+      renderGroanButtons(jokeId, stored);
+      fetchGroanForJoke(jokeId);
+    };
+
+    window.hideGroanBar = function() {
+      const bar = document.getElementById('groan-bar');
+      if (bar) bar.style.display = 'none';
+      _currentGroanJokeId = null;
+    };
+
+    // Most Groan-Worthy panel
+    function groanPanelIsOpen() {
+      try { return localStorage.getItem('groan_panel_open') !== 'false'; } catch { return true; }
+    }
+    function setGroanPanelOpen(open) {
+      try { localStorage.setItem('groan_panel_open', open ? 'true' : 'false'); } catch {}
+    }
+
+    window.toggleGroanPanel = function() {
+      const panel = document.getElementById('groan-panel');
+      if (!panel) return;
+      const open = panel.classList.toggle('open');
+      setGroanPanelOpen(open);
+    };
+
+    function renderGroanList(items) {
+      const container = document.getElementById('groan-most-list');
+      const empty = document.getElementById('groan-most-empty');
+      if (!container) return;
+      if (!items || items.length === 0) {
+        if (empty) empty.style.display = '';
+        // Remove old items except empty msg
+        Array.from(container.children).forEach(c => { if (c.id !== 'groan-most-empty') c.remove(); });
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+      // Remove old items
+      Array.from(container.children).forEach(c => { if (c.id !== 'groan-most-empty') c.remove(); });
+      items.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = 'groan-item';
+        const pct = Math.round((item.weightedScore / 5) * 100);
+        div.innerHTML =
+          '<span class="groan-item-rank">' + (idx+1) + '</span>' +
+          '<span class="groan-item-text">' + item.joke.replace(/</g,'&lt;') +
+            '<div class="groan-score-bar"><div class="groan-score-bar-fill" style="width:'+pct+'%"></div></div>' +
+          '</span>' +
+          '<span class="groan-item-score">🤮 '+item.weightedScore.toFixed(1)+' <span style="font-weight:normal;color:#aaa;">('+item.totalRatings+')</span></span>';
+        container.appendChild(div);
+      });
+    }
+
+    async function fetchMostGroany() {
+      try {
+        const res = await fetch('/api/jokes/most-groany?limit=10', { cache: 'no-store' });
+        if (!res.ok) return;
+        renderGroanList(await res.json());
+      } catch(e) {}
+    }
+
+    function stopGroanPolling() { if (_groanPollTimer) { clearInterval(_groanPollTimer); _groanPollTimer = null; } }
+    function startGroanPolling() {
+      stopGroanPolling();
+      fetchMostGroany();
+      _groanPollTimer = setInterval(fetchMostGroany, GROAN_POLL_INTERVAL_MS);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') fetchMostGroany();
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const panel = document.getElementById('groan-panel');
+      if (panel && groanPanelIsOpen()) panel.classList.add('open');
+
+      const origSwitch = window.switchTab;
+      window.switchTab = function(tab) {
+        if (typeof origSwitch === 'function') origSwitch(tab);
+        const gp = document.getElementById('groan-panel');
+        if (!gp) return;
+        if (tab === 'today') {
+          gp.classList.remove('hidden');
+          startGroanPolling();
+        } else {
+          gp.classList.add('hidden');
+          stopGroanPolling();
+        }
+      };
+      startGroanPolling();
     });
   })();
   </script>
