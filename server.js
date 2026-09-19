@@ -26,6 +26,7 @@ const TRENDING_EVENTS_FILE = process.env.TRENDING_EVENTS_FILE || path.join(__dir
 const VOTE_LOG_FILE = process.env.VOTE_LOG_FILE || path.join(__dirname, 'vote-log.json');
 const CHALLENGES_FILE = process.env.CHALLENGES_FILE || path.join(__dirname, 'challenges.json');
 const COLLECTIONS_FILE = process.env.COLLECTIONS_FILE || path.join(__dirname, 'collections.json');
+const GROAN_FILE = process.env.GROAN_FILE || path.join(__dirname, 'groan-ratings.json');
 
 // UUID v4 validation regex
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -617,6 +618,12 @@ app.get('/api/jokes/today/vibe', (req, res) => {
   const commentCount = comments.filter(c => c.jokeId === jokeId).length;
 
   const result = { jokeId, score, dominantReaction, dominantReactionCount, commentCount };
+
+  // Groan-O-Meter enrichment (v32)
+  const groanRatings = readGroanRatings();
+  const groanCounts = getGroanCounts(jokeId, groanRatings);
+  result.groanScore = computeGroanScore(groanCounts);
+  result.groanTotal = Object.values(groanCounts).reduce((a, b) => a + b, 0);
 
   // Passport enrichment
   if (token && UUID_V4_RE.test(token)) {
@@ -1568,6 +1575,134 @@ app.get('/collection/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'collection-page.html'));
 });
 
+// ── Groan-O-Meter (v32) ──────────────────────────────────────────────────────
+
+/**
+ * Pure function: compute weighted groan score from counts.
+ * counts: { 1: n, 2: n, 3: n, 4: n, 5: n }
+ * Returns null if totalRatings === 0, else weighted average 1.0–5.0
+ */
+function computeGroanScore(counts) {
+  let total = 0, weightedSum = 0;
+  for (let r = 1; r <= 5; r++) {
+    const n = counts[r] || 0;
+    total += n;
+    weightedSum += r * n;
+  }
+  if (total === 0) return null;
+  return Math.round((weightedSum / total) * 100) / 100;
+}
+
+function readGroanRatings() { return readJson(GROAN_FILE, []); }
+function saveGroanRatings(data) { writeJson(GROAN_FILE, data); }
+
+// In-memory groan rate limit: max 20 per IP per minute
+const groanRateLimit = {};
+const GROAN_RATE_LIMIT_MAX = 20;
+const GROAN_RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+
+function checkGroanRateLimit(ip) {
+  const now = Date.now();
+  const times = (groanRateLimit[ip] || []).filter(t => now - t < GROAN_RATE_LIMIT_WINDOW);
+  groanRateLimit[ip] = times;
+  if (times.length >= GROAN_RATE_LIMIT_MAX) return false;
+  times.push(now);
+  return true;
+}
+
+function getGroanCounts(jokeId, ratings) {
+  const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  for (const r of ratings) {
+    if (r.jokeId === jokeId) counts[r.rating] = (counts[r.rating] || 0) + 1;
+  }
+  return counts;
+}
+
+// POST /api/jokes/:id/groan
+app.post('/api/jokes/:id/groan', (req, res) => {
+  const jokeId = parseInt(req.params.id);
+  if (isNaN(jokeId) || !allJokes().find(j => j.id === jokeId)) {
+    return res.status(404).json({ error: 'Joke not found' });
+  }
+  const { rating } = req.body || {};
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return res.status(400).json({ error: 'rating must be an integer between 1 and 5' });
+  }
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  if (!checkGroanRateLimit(ip)) {
+    return res.status(429).json({ error: 'Too many groan ratings. Please wait before rating again.' });
+  }
+  const hashedIp = hashIp(ip);
+  const ratings = readGroanRatings();
+  const existingIdx = ratings.findIndex(r => r.jokeId === jokeId && r.ip === hashedIp);
+
+  if (existingIdx !== -1 && ratings[existingIdx].rating === rating) {
+    // Same rating re-submitted: toggle/remove
+    ratings.splice(existingIdx, 1);
+    saveGroanRatings(ratings);
+    const counts = getGroanCounts(jokeId, ratings);
+    return res.json({
+      removed: true,
+      jokeId,
+      rating: null,
+      counts,
+      weightedScore: computeGroanScore(counts)
+    });
+  }
+
+  if (existingIdx !== -1) {
+    // Replace existing rating
+    ratings[existingIdx].rating = rating;
+    ratings[existingIdx].createdAt = new Date().toISOString();
+  } else {
+    ratings.push({ jokeId, ip: hashedIp, rating, createdAt: new Date().toISOString() });
+  }
+  saveGroanRatings(ratings);
+  const counts = getGroanCounts(jokeId, ratings);
+  res.json({ jokeId, rating, counts, weightedScore: computeGroanScore(counts) });
+});
+
+// GET /api/jokes/:id/groan
+app.get('/api/jokes/:id/groan', (req, res) => {
+  const jokeId = parseInt(req.params.id);
+  if (isNaN(jokeId) || !allJokes().find(j => j.id === jokeId)) {
+    return res.status(404).json({ error: 'Joke not found' });
+  }
+  const ratings = readGroanRatings();
+  const counts = getGroanCounts(jokeId, ratings);
+  const totalRatings = Object.values(counts).reduce((a, b) => a + b, 0);
+  res.json({ jokeId, counts, weightedScore: computeGroanScore(counts), totalRatings });
+});
+
+// GET /api/jokes/most-groany?limit=10
+app.get('/api/jokes/most-groany', (req, res) => {
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 50);
+  const MIN_RATINGS = 3;
+  const ratings = readGroanRatings();
+  const jokes = allJokes();
+
+  // Accumulate counts per joke
+  const jokeCounts = {};
+  for (const r of ratings) {
+    if (!jokeCounts[r.jokeId]) jokeCounts[r.jokeId] = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    jokeCounts[r.jokeId][r.rating] = (jokeCounts[r.jokeId][r.rating] || 0) + 1;
+  }
+
+  const result = [];
+  for (const [idStr, counts] of Object.entries(jokeCounts)) {
+    const totalRatings = Object.values(counts).reduce((a, b) => a + b, 0);
+    if (totalRatings < MIN_RATINGS) continue;
+    const jokeId = parseInt(idStr);
+    const joke = jokes.find(j => j.id === jokeId);
+    if (!joke) continue;
+    const weightedScore = computeGroanScore(counts);
+    result.push({ id: jokeId, joke: joke.joke, category: joke.category, weightedScore, totalRatings });
+  }
+
+  result.sort((a, b) => b.weightedScore - a.weightedScore || a.id - b.id);
+  res.json(result.slice(0, limit));
+});
+
 module.exports = app;
 module.exports._resetCommentRateLimitForTest = _resetCommentRateLimitForTest;
 module.exports._readPassports = readPassports;
@@ -1601,3 +1736,8 @@ module.exports._saveCollections = saveCollections;
 module.exports.COLLECTION_MAX_PER_PASSPORT = COLLECTION_MAX_PER_PASSPORT;
 module.exports.COLLECTION_MAX_JOKES = COLLECTION_MAX_JOKES;
 module.exports._resetCollectionRateLimitForTest = function() { Object.keys(collectionMutateRateLimit).forEach(k => delete collectionMutateRateLimit[k]); };
+
+// ── Groan-O-Meter (v32) ──────────────────────────────────────────────────────
+module.exports.GROAN_FILE = GROAN_FILE;
+module.exports.computeGroanScore = computeGroanScore;
+module.exports._resetGroanRateLimitForTest = function() { Object.keys(groanRateLimit).forEach(k => delete groanRateLimit[k]); };
